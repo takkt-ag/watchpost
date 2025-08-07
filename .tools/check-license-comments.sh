@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2025 TAKKT Industrial & Packaging GmbH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +15,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+PATTERN_COPYRIGHT='^(//|#) Copyright [[:digit:]]+ TAKKT Industrial & Packaging GmbH'
+PATTERN_SPDX='^(//|#) SPDX-License-Identifier: Apache-2.0'
+ERRORS=0
 
-def main() -> None:
-    pass
+while read -r -d $'\0' file
+do
+  if ! grep -qE "${PATTERN_COPYRIGHT}" "$file"; then
+    echo "$file: missing/malformed copyright-notice"
+    ERRORS=$((ERRORS + 1))
+  fi
+  if ! grep -qE "${PATTERN_SPDX}" "$file"; then
+    echo "$file: missing/malformed SPDX license identifier"
+    ERRORS=$((ERRORS + 1))
+  fi
+done < <(\
+  git ls-files -z -- \
+    '*.py' \
+    '*.sh' \
+)
+
+if [[ "$ERRORS" -gt 0 ]]; then
+  exit 1
+fi
