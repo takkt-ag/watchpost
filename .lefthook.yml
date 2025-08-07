@@ -1,0 +1,37 @@
+pre-commit:
+  parallel: true
+  jobs:
+  - name: ruff
+    tags:
+    - python
+    - lint
+    glob: "*.py"
+    stage_fixed: true
+    group:
+      parallel: false
+      jobs:
+      - run: uv run ruff check {staged_files}
+      - run: uv run ruff format {staged_files}
+
+pre-push:
+  parallel: true
+  jobs:
+  - name: ruff
+    tags:
+    - python
+    - lint
+    group:
+      parallel: false
+      jobs:
+      - run: uv run ruff check
+      - run: uv run ruff format
+  - name: License checks
+    tags:
+    - licenses
+    group:
+      parallel: true
+      jobs:
+      - name: External license check
+        run: uv run licensecheck --zero
+      - name: License comments
+        run: ./.tools/check-license-comments.sh

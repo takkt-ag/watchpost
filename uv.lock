@@ -104,6 +104,15 @@ wheels = [
 ]
 
 [[package]]
+name = "lefthook"
+version = "1.12.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/00/28d555139119488cc353860f3bfbff16c788c3a6f571eb771e81e35b89d9/lefthook-1.12.2.tar.gz", hash = "sha256:932aad5491b107b1fe770a85be4ef1e6798df084f309070d041c6a3280c56728", size = 51089410, upload-time = "2025-07-11T10:50:11.559Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/08/6f/6b1730419215ea204f6f1f71370e44a7775ba2db0ca8d4372c08c176e710/lefthook-1.12.2-py3-none-any.whl", hash = "sha256:59b773512cf2e5ec646b03fa2966d600452825c4cb2e5cc81277804e71616805", size = 51332387, upload-time = "2025-07-11T10:50:07.284Z" },
+]
+
+[[package]]
 name = "license-expression"
 version = "30.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -188,6 +197,7 @@ source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "lefthook" },
     { name = "licensecheck" },
     { name = "ruff" },
 ]
@@ -196,6 +206,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "lefthook", specifier = ">=1.12.2" },
     { name = "licensecheck", specifier = ">=2025.1.0" },
     { name = "ruff", specifier = ">=0.12.7" },
 ]
