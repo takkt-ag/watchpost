@@ -22,6 +22,7 @@ Find a list of packages below
 |✔|charset-normalizer|
 |✔|fhconfparser|
 |✔|idna|
+|✔|lefthook|
 |✔|license-expression|
 |✔|licensecheck|
 |✔|loguru|
@@ -95,6 +96,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: BSD LICENSE
+- Compatible: True
+
+### lefthook-1.12.2
+
+- HomePage: https://github.com/evilmartians/lefthook
+- Author: Evil Martians
+- License: MIT LICENSE
 - Compatible: True
 
 ### license-expression-30.4.4
