@@ -1,0 +1,59 @@
+---
+name: CI
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  check-license-comments:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Check license comments
+      run: |
+        ./.tools/check-license-comments.sh
+
+  licensecheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Set up Python
+      run: uv python install
+
+    - name: Verify licenses are allowed
+      run: uv run licensecheck --zero
+    - name: Generate up-to-date `THIRD_PARTY_LICENSES.md`
+      run: uv run licensecheck --format markdown | grep -vF 'Size:' > ./THIRD_PARTY_LICENSES.md
+    - name: Verify `THIRD_PARTY_LICENSES.md` is up-to-date
+      run: |
+        git diff --exit-code ./THIRD_PARTY_LICENSES.md
+        if [ $? -ne 0 ]; then
+          echo "THIRD_PARTY_LICENSES.md is out of date. Please run 'uv run licensecheck --format markdown | grep -vF 'Size:' > ./THIRD_PARTY_LICENSES.md' locally, compare what has changed and commit the changes."
+          exit 1
+        fi
+
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Set up Python
+      run: uv python install
+
+    - name: ruff check
+      run: uv run ruff check --output-format=github .
+    - name: ruff format
+      run: uv run ruff format --diff
+
+    - name: yamllint
+      uses: frenck/action-yamllint@v1.5.0
