@@ -1,0 +1,47 @@
+[project]
+name = "outpost"
+version = "0.1.0"
+description = "Code driven monitoring checks for Checkmk"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Pit Kleyersburg", email = "pit.kleyersburg@takkt.com" },
+    { name = "TAKKT Industrial & Packaging GmbH", email = "webshop-devops@kaiserkraft-europa.de" },
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+outpost = "outpost:main"
+
+[build-system]
+requires = ["uv_build>=0.8.2,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "licensecheck>=2025.1.0",
+    "ruff>=0.12.7",
+]
+
+[tool.licensecheck]
+only_licenses = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "MIT",
+    "MPL-2.0",
+]
+groups = [
+    "dev",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "ARG",  # flake8-unused-arguments
+    "DTZ",  # flake8-datetimez
+    "FAST", # FastAPI
+    "I",    # isort
+    "RUF",  # Ruff-specific rules
+    "T20",  # flake8-print
+    "UP",   # pyupgrade
+]
