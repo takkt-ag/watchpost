@@ -23,6 +23,7 @@ dev = [
     "lefthook>=1.12.2",
     "licensecheck>=2025.1.0",
     "ruff>=0.12.7",
+    "ty>=0.0.1a17",
 ]
 
 [tool.licensecheck]
@@ -45,4 +46,9 @@ extend-select = [
     "RUF",  # Ruff-specific rules
     "T20",  # flake8-print
     "UP",   # pyupgrade
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/**.py" = [
+    "T20",  # flake8-print
 ]

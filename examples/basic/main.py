@@ -14,10 +14,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .app import Outpost
-from .globals import current_app
+from outpost import Outpost, current_app
 
-__all__ = [
-    "Outpost",
-    "current_app",
-]
+
+def dummy_check():
+    print("This is a running check.")
+    print(f"Current app: {current_app}")
+
+
+def main():
+    app = Outpost(
+        checks=[dummy_check],
+    )
+
+    app.run_checks_once()
+
+
+if __name__ == "__main__":
+    main()

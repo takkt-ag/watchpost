@@ -1,5 +1,6 @@
 .venv/
 .idea/
+*.egg-info/
 *.pyc
 .envrc
 .env

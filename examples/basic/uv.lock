@@ -1,0 +1,29 @@
+version = 1
+revision = 2
+requires-python = ">=3.13"
+
+[[package]]
+name = "basic"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "outpost" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "outpost", editable = "../../" }]
+
+[[package]]
+name = "outpost"
+version = "0.1.0"
+source = { editable = "../../" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "lefthook", specifier = ">=1.12.2" },
+    { name = "licensecheck", specifier = ">=2025.1.0" },
+    { name = "ruff", specifier = ">=0.12.7" },
+    { name = "ty", specifier = ">=0.0.1a17" },
+]
