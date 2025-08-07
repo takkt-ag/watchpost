@@ -1,0 +1,23 @@
+[project]
+name = "basic"
+version = "0.1.0"
+description = "A basic example demonstrating the use of Outpost."
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Pit Kleyersburg", email = "pit.kleyersburg@takkt.com" },
+    { name = "TAKKT Industrial & Packaging GmbH", email = "webshop-devops@kaiserkraft-europa.de" },
+]
+requires-python = ">=3.13"
+dependencies = [
+    "outpost",
+]
+
+[project.scripts]
+example = "main:main"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+outpost = { path = "../../", editable = true }
