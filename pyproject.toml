@@ -23,6 +23,7 @@ dev = [
     "lefthook>=1.12.2",
     "licensecheck>=2025.1.0",
     "ruff>=0.12.7",
+    "ty>=0.0.1a17",
 ]
 
 [tool.licensecheck]

@@ -15,12 +15,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Pattern for regular files
 PATTERN_COPYRIGHT='^(//|#) Copyright [[:digit:]]+ TAKKT Industrial & Packaging GmbH'
 PATTERN_SPDX='^(//|#) SPDX-License-Identifier: Apache-2.0'
+
+# Pattern for vendored files
+PATTERN_ANY_COPYRIGHT='^(//|#) Copyright'
+PATTERN_VENDORED_SPDX='^(//|#) SPDX-License-Identifier: (Apache-2.0|BSD-2-Clause|BSD-3-Clause|MIT|MPL-2.0)'
+
 ERRORS=0
 
+# Check regular files
 while read -r -d $'\0' file
 do
+  if [[ "$file" == src/outpost/vendored/* ]]; then
+    # Skip vendored files, they will be checked separately
+    continue
+  fi
+
   if ! grep -qE "${PATTERN_COPYRIGHT}" "$file"; then
     echo "$file: missing/malformed copyright-notice"
     ERRORS=$((ERRORS + 1))
@@ -33,6 +45,23 @@ done < <(\
   git ls-files -z -- \
     '*.py' \
     '*.sh' \
+)
+
+# Check vendored files
+while read -r -d $'\0' file
+do
+  if ! grep -qE "${PATTERN_ANY_COPYRIGHT}" "$file"; then
+    echo "$file: missing copyright-notice"
+    ERRORS=$((ERRORS + 1))
+  fi
+  if ! grep -qE "${PATTERN_VENDORED_SPDX}" "$file"; then
+    echo "$file: missing/malformed SPDX license identifier (must be one of: Apache-2.0, BSD-2-Clause, BSD-3-Clause, MIT, MPL-2.0)"
+    ERRORS=$((ERRORS + 1))
+  fi
+done < <(\
+  git ls-files -z -- \
+    'src/outpost/vendored/*.py' \
+    'src/outpost/vendored/*.sh' \
 )
 
 if [[ "$ERRORS" -gt 0 ]]; then

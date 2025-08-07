@@ -14,10 +14,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .app import Outpost
-from .globals import current_app
+from __future__ import annotations
 
-__all__ = [
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, cast
+
+from .vendored.local_proxy import LocalProxy
+
+if TYPE_CHECKING:
+    from .app import Outpost
+
+_no_app_message = """\
+Outpost application is not available.
+
+Are you interacting with '{local}' in the context of the running Outpost application?
+"""
+
+_cv = ContextVar("outpost_context")
+current_app: Outpost = cast(
     "Outpost",
-    "current_app",
-]
+    LocalProxy(
+        local=_cv,
+        unbound_message=_no_app_message.format(local="current_app"),
+    ),
+)

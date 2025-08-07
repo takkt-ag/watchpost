@@ -10,8 +10,14 @@ pre-commit:
     group:
       parallel: false
       jobs:
-      - run: uv run ruff check {staged_files}
+      - run: uv run ruff check --fix {staged_files}
       - run: uv run ruff format {staged_files}
+  - name: ty
+    tags:
+    - python
+    - lint
+    glob: "*.py"
+    run: uv run ty check {staged_files}
 
 pre-push:
   parallel: true
@@ -25,6 +31,12 @@ pre-push:
       jobs:
       - run: uv run ruff check
       - run: uv run ruff format
+  - name: ty
+    tags:
+    - python
+    - lint
+    glob: "*.py"
+    run: uv run ty check
   - name: License checks
     tags:
     - licenses

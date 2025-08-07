@@ -13,11 +13,3 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-from .app import Outpost
-from .globals import current_app
-
-__all__ = [
-    "Outpost",
-    "current_app",
-]

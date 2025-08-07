@@ -38,6 +38,7 @@ Find a list of packages below
 |✔|rich|
 |✔|ruff|
 |✔|tomli|
+|✔|ty|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
@@ -206,6 +207,13 @@ Find a list of packages below
 ### tomli-2.2.1
 
 - HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
+### ty-0.0.1a17
+
+- HomePage: https://github.com/astral-sh/ty/
 - Author: UNKNOWN
 - License: MIT LICENSE
 - Compatible: True
