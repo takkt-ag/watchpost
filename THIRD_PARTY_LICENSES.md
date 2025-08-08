@@ -22,6 +22,7 @@ Find a list of packages below
 |✔|charset-normalizer|
 |✔|fhconfparser|
 |✔|idna|
+|✔|iniconfig|
 |✔|lefthook|
 |✔|license-expression|
 |✔|licensecheck|
@@ -34,7 +35,9 @@ Find a list of packages below
 |✔|packaging|
 |✔|pathspec|
 |✔|platformdirs|
+|✔|pluggy|
 |✔|pygments|
+|✔|pytest|
 |✔|requests|
 |✔|requests-cache|
 |✔|requirements-parser|
@@ -42,7 +45,7 @@ Find a list of packages below
 |✔|ruff|
 |✔|tomli|
 |✔|ty|
-|✖|typing-extensions|
+|✔|typing-extensions|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
@@ -101,6 +104,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: BSD LICENSE
+- Compatible: True
+
+### iniconfig-2.1.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
 - Compatible: True
 
 ### lefthook-1.12.2
@@ -187,11 +197,25 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
+### pluggy-1.6.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
 ### pygments-2.19.2
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: BSD LICENSE
+- Compatible: True
+
+### pytest-8.4.1
+
+- HomePage: UNKNOWN
+- Author: Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)
+- License: MIT LICENSE
 - Compatible: True
 
 ### requests-2.32.4
@@ -248,7 +272,7 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: PSF-2.0
-- Compatible: False
+- Compatible: True
 
 ### url-normalize-2.2.1
 

@@ -40,7 +40,7 @@ def get_invocation_information() -> InvocationInformation | None:
 
     if not outpost.__file__ or not relevant_module.__file__:
         return None
-    root_directory = Path(outpost.__file__).parent.parent
+    root_directory = Path(outpost.__file__).parent.parent.parent
     relevant_module_path = Path(relevant_module.__file__)
 
     return InvocationInformation(
