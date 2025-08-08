@@ -16,9 +16,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator
+import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 
+from .check import Check
 from .globals import _cv
 
 
@@ -26,7 +28,7 @@ class Outpost:
     def __init__(
         self,
         *,
-        checks: list[Callable],
+        checks: list[Check],
     ):
         self._checks = checks
 
@@ -41,4 +43,7 @@ class Outpost:
     def run_checks_once(self):
         with self.app_context():
             for check in self._checks:
-                check()
+                execution_results = check.run()
+                for execution_result in execution_results:
+                    for chunk in execution_result.generate_checkmk_output():
+                        sys.stdout.buffer.write(chunk)
