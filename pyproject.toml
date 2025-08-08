@@ -22,6 +22,7 @@ build-backend = "uv_build"
 dev = [
     "lefthook>=1.12.2",
     "licensecheck>=2025.1.0",
+    "mypy>=1.17.1",
     "ruff>=0.12.7",
     "ty>=0.0.1a17",
 ]
@@ -32,6 +33,9 @@ only_licenses = [
     "BSD-2-Clause",
     "MIT",
     "MPL-2.0",
+]
+ignore_packages = [
+    "mypy-extensions", # MIT licensed, information missing
 ]
 groups = [
     "dev",

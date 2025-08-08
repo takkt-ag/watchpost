@@ -167,7 +167,7 @@ class _ProxyIOp(_ProxyLookup):
 
             return i_op.__get__(obj, type(obj))  # type: ignore
 
-        self.bind_f = bind_f
+        self.bind_f = bind_f  # type: ignore[assignment]
 
 
 def _l_to_r_op[T, R](op: t.Callable[[T, T], R]) -> t.Callable[[T, T], R]:

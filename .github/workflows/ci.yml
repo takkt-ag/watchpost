@@ -56,6 +56,8 @@ jobs:
       run: uv run ruff format --diff
     - name: ty check
       run: uv run ty check
+    - name: mypy
+      run: uv run mypy examples/ src/
 
     - name: yamllint
       uses: frenck/action-yamllint@v1.5.0

@@ -29,7 +29,10 @@ Find a list of packages below
 |✔|markdown|
 |✔|markdown-it-py|
 |✔|mdurl|
+|✔|mypy|
+|✔|mypy-extensions|
 |✔|packaging|
+|✔|pathspec|
 |✔|platformdirs|
 |✔|pygments|
 |✔|requests|
@@ -39,6 +42,7 @@ Find a list of packages below
 |✔|ruff|
 |✔|tomli|
 |✔|ty|
+|✖|typing-extensions|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
@@ -148,11 +152,32 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
+### mypy-1.17.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
+### mypy-extensions-1.1.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: 
+- Compatible: True
+
 ### packaging-25.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: APACHE SOFTWARE LICENSE;; BSD LICENSE
+- Compatible: True
+
+### pathspec-0.12.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MOZILLA PUBLIC LICENSE 2.0 _MPL 2.0_
 - Compatible: True
 
 ### platformdirs-4.3.8
@@ -217,6 +242,13 @@ Find a list of packages below
 - Author: UNKNOWN
 - License: MIT LICENSE
 - Compatible: True
+
+### typing-extensions-4.14.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: PSF-2.0
+- Compatible: False
 
 ### url-normalize-2.2.1
 

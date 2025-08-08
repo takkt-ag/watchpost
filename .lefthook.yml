@@ -18,6 +18,12 @@ pre-commit:
     - lint
     glob: "*.py"
     run: uv run ty check {staged_files}
+  - name: mypy
+    tags:
+    - python
+    - lint
+    glob: "*.py"
+    run: uv run mypy examples/ src/
 
 pre-push:
   parallel: true
@@ -37,6 +43,12 @@ pre-push:
     - lint
     glob: "*.py"
     run: uv run ty check
+  - name: mypy
+    tags:
+    - python
+    - lint
+    glob: "*.py"
+    run: uv run mypy examples/ src/
   - name: License checks
     tags:
     - licenses

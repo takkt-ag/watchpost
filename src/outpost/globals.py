@@ -30,7 +30,7 @@ Outpost application is not available.
 Are you interacting with '{local}' in the context of the running Outpost application?
 """
 
-_cv = ContextVar("outpost_context")
+_cv: ContextVar = ContextVar("outpost_context")
 current_app: Outpost = cast(
     "Outpost",
     LocalProxy(
