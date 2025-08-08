@@ -16,25 +16,26 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar
-from typing import TYPE_CHECKING, cast
+from abc import ABC
 
-from .vendored.local_proxy import LocalProxy
 
-if TYPE_CHECKING:
-    from .app import Outpost
+class DatasourceUnavailable(Exception):
+    pass
 
-_no_app_message = """\
-Outpost application is not available.
 
-Are you interacting with '{local}' in the context of the running Outpost application?
-"""
+class Datasource(ABC):
+    argument_name: str
+    instance: Datasource
+    initialize_on_startup: bool = True
 
-_cv: ContextVar = ContextVar("outpost_context")
-current_app: Outpost = cast(
-    "Outpost",
-    LocalProxy(
-        local=_cv,
-        unbound_message=_no_app_message.format(local="current_app"),
-    ),
-)
+    @classmethod
+    def available_datasources(cls) -> set[type[Datasource]]:
+        subclasses = set()
+        queue = [cls]
+        while queue:
+            class_ = queue.pop()
+            for subclass in class_.__subclasses__():
+                subclasses.add(subclass)
+                queue.append(subclass)
+
+        return subclasses

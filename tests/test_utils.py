@@ -14,27 +14,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
+import inspect
 
-from contextvars import ContextVar
-from typing import TYPE_CHECKING, cast
+from outpost.utils import InvocationInformation, get_invocation_information
 
-from .vendored.local_proxy import LocalProxy
 
-if TYPE_CHECKING:
-    from .app import Outpost
+def return_invocation_information():
+    return get_invocation_information()
 
-_no_app_message = """\
-Outpost application is not available.
 
-Are you interacting with '{local}' in the context of the running Outpost application?
-"""
-
-_cv: ContextVar = ContextVar("outpost_context")
-current_app: Outpost = cast(
-    "Outpost",
-    LocalProxy(
-        local=_cv,
-        unbound_message=_no_app_message.format(local="current_app"),
-    ),
-)
+def test_get_invocation_information():
+    current_frame = inspect.currentframe()
+    assert current_frame
+    expected_line_number = current_frame.f_lineno
+    invocation_information = return_invocation_information()
+    assert isinstance(invocation_information, InvocationInformation)
+    assert invocation_information.relative_path == "tests/test_utils.py"
+    assert invocation_information.line_number == expected_line_number + 1

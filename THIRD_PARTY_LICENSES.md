@@ -22,6 +22,7 @@ Find a list of packages below
 |✔|charset-normalizer|
 |✔|fhconfparser|
 |✔|idna|
+|✔|iniconfig|
 |✔|lefthook|
 |✔|license-expression|
 |✔|licensecheck|
@@ -29,9 +30,14 @@ Find a list of packages below
 |✔|markdown|
 |✔|markdown-it-py|
 |✔|mdurl|
+|✔|mypy|
+|✔|mypy-extensions|
 |✔|packaging|
+|✔|pathspec|
 |✔|platformdirs|
+|✔|pluggy|
 |✔|pygments|
+|✔|pytest|
 |✔|requests|
 |✔|requests-cache|
 |✔|requirements-parser|
@@ -39,6 +45,7 @@ Find a list of packages below
 |✔|ruff|
 |✔|tomli|
 |✔|ty|
+|✔|typing-extensions|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
@@ -99,6 +106,13 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
+### iniconfig-2.1.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
 ### lefthook-1.12.2
 
 - HomePage: https://github.com/evilmartians/lefthook
@@ -148,6 +162,20 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
+### mypy-1.17.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
+### mypy-extensions-1.1.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: 
+- Compatible: True
+
 ### packaging-25.0
 
 - HomePage: UNKNOWN
@@ -155,7 +183,21 @@ Find a list of packages below
 - License: APACHE SOFTWARE LICENSE;; BSD LICENSE
 - Compatible: True
 
+### pathspec-0.12.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MOZILLA PUBLIC LICENSE 2.0 _MPL 2.0_
+- Compatible: True
+
 ### platformdirs-4.3.8
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
+### pluggy-1.6.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -167,6 +209,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: BSD LICENSE
+- Compatible: True
+
+### pytest-8.4.1
+
+- HomePage: UNKNOWN
+- Author: Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)
+- License: MIT LICENSE
 - Compatible: True
 
 ### requests-2.32.4
@@ -216,6 +265,13 @@ Find a list of packages below
 - HomePage: https://github.com/astral-sh/ty/
 - Author: UNKNOWN
 - License: MIT LICENSE
+- Compatible: True
+
+### typing-extensions-4.14.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: PSF-2.0
 - Compatible: True
 
 ### url-normalize-2.2.1
