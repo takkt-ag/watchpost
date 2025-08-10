@@ -15,9 +15,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .app import Outpost
+from .check import check
+from .datasource import Datasource
+from .environment import Environment
 from .globals import current_app
+from .result import build_result, crit, ok, unknown, warn
 
 __all__ = [
+    "Datasource",
+    "Environment",
     "Outpost",
+    "build_result",
+    "check",
+    "crit",
     "current_app",
+    "ok",
+    "unknown",
+    "warn",
 ]

@@ -15,7 +15,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from outpost import Outpost, current_app
-from outpost.check import Check
+from outpost.check import check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
 from outpost.result import ok
@@ -25,6 +25,12 @@ class DummyDatasource(Datasource):
     argument_name = "dummy"
 
 
+@check(
+    name="dummy",
+    service_labels={"foo": "bar"},
+    environments=[Environment("test")],
+    datasources=[DummyDatasource],
+)
 def dummy_check_function(dummy: DummyDatasource):
     print("This is a running check.")
     print(f"Current app: {current_app}")
@@ -34,15 +40,8 @@ def dummy_check_function(dummy: DummyDatasource):
 
 def main():
     DummyDatasource.instance = DummyDatasource()
-    dummy_check = Check(
-        service_name="dummy",
-        service_labels={"foo": "bar"},
-        check_function=dummy_check_function,
-        datasources=[DummyDatasource],
-        environments=[Environment("test")],
-    )
     app = Outpost(
-        checks=[dummy_check],
+        checks=[dummy_check_function],
     )
 
     app.run_checks_once()

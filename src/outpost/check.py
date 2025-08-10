@@ -21,7 +21,7 @@ import inspect
 import io
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from .datasource import Datasource
 from .environment import Environment
@@ -31,7 +31,7 @@ from .result import (
     OngoingCheckResult,
     normalize_check_function_result,
 )
-from .utils import InvocationInformation
+from .utils import InvocationInformation, get_invocation_information
 
 CheckFunctionResult = (
     CheckResult
@@ -41,7 +41,7 @@ CheckFunctionResult = (
 )
 
 _E = Environment
-_D = Datasource
+_D = TypeVar("_D", bound=Datasource)
 _R = CheckFunctionResult
 
 CheckFunction = (
@@ -78,6 +78,9 @@ class Check:
 
     def __post_init__(self):
         self._check_function_signature = inspect.signature(self.check_function)
+
+    def __call__(self, *args, **kwargs):
+        return self.check_function(*args, **kwargs)
 
     def run(self) -> list[ExecutionResult]:
         kwargs: dict[str, Environment | Datasource] = {
@@ -122,3 +125,25 @@ class Check:
 
     def generate_hostname(self, environment: Environment) -> str:
         return f"{self.service_name}-{environment.name}-NOTIMPLEMENTEDYET"
+
+
+def check(
+    *,
+    name: str,
+    service_labels: dict[str, Any],
+    environments: list[Environment],
+    datasources: list[type[Datasource]],
+) -> Callable[[CheckFunction], Check]:
+    check_definition = get_invocation_information()
+
+    def decorator(func: CheckFunction) -> Check:
+        return Check(
+            check_function=func,
+            service_name=name,
+            service_labels=service_labels,
+            environments=environments,
+            datasources=datasources,
+            invocation_information=check_definition,
+        )
+
+    return decorator
