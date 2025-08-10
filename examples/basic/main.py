@@ -18,7 +18,7 @@ from outpost import Outpost, current_app
 from outpost.check import check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
-from outpost.result import ok
+from outpost.result import CheckResult, ok
 
 
 class DummyDatasource(Datasource):
@@ -31,14 +31,14 @@ class DummyDatasource(Datasource):
     environments=[Environment("test")],
     datasources=[DummyDatasource],
 )
-def dummy_check_function(dummy: DummyDatasource):
+def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
     print("This is a running check.")
     print(f"Current app: {current_app}")
     print(f"Dummy: {dummy}")
     return ok("This is a check result.")
 
 
-def main():
+def main() -> None:
     DummyDatasource.instance = DummyDatasource()
     app = Outpost(
         checks=[dummy_check_function],

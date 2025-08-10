@@ -40,7 +40,7 @@ class Outpost:
         finally:
             _cv.reset(_token)
 
-    def run_checks_once(self):
+    def run_checks_once(self) -> None:
         with self.app_context():
             for check in self._checks:
                 execution_results = check.run()

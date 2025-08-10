@@ -43,6 +43,16 @@ groups = [
     "dev",
 ]
 
+[tool.mypy]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+
+exclude = [
+    "tests/.*"
+]
+
 [tool.ruff.lint]
 extend-select = [
     "ARG",  # flake8-unused-arguments
