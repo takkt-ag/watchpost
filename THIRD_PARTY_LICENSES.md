@@ -98,11 +98,11 @@ Find a list of packages below
 - License: MOZILLA PUBLIC LICENSE 2.0 _MPL 2.0_
 - Compatible: True
 
-### charset-normalizer-3.4.2
+### charset-normalizer-3.4.3
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
-- License: MIT LICENSE
+- License: MIT
 - Compatible: True
 
 ### fhconfparser-2024.1
@@ -280,7 +280,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ruff-0.12.7
+### ruff-0.12.8
 
 - HomePage: https://docs.astral.sh/ruff
 - Author: UNKNOWN
@@ -336,7 +336,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### uv-0.8.5
+### uv-0.8.8
 
 - HomePage: https://pypi.org/project/uv/
 - Author: UNKNOWN
