@@ -38,11 +38,13 @@ def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
     return ok("This is a check result.")
 
 
+app = Outpost(
+    checks=[dummy_check_function],
+)
+
+
 def main() -> None:
     DummyDatasource.instance = DummyDatasource()
-    app = Outpost(
-        checks=[dummy_check_function],
-    )
 
     app.run_checks_once()
 

@@ -9,7 +9,9 @@ authors = [
     { name = "TAKKT Industrial & Packaging GmbH", email = "webshop-devops@kaiserkraft-europa.de" },
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "starlette>=0.47.2",
+]
 
 [project.scripts]
 outpost = "outpost:main"
@@ -20,6 +22,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "lefthook>=1.12.2",
     "licensecheck>=2025.1.0",
     "mypy>=1.17.1",

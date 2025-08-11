@@ -76,6 +76,10 @@ class Check:
     datasources: list[type[Datasource]]
     invocation_information: InvocationInformation | None = None
 
+    @property
+    def name(self) -> str:
+        return f"{self.check_function.__module__}.{self.check_function.__qualname__}"
+
     def __post_init__(self) -> None:
         self._check_function_signature = inspect.signature(self.check_function)
 
