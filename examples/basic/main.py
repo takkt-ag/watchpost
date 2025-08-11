@@ -22,14 +22,13 @@ from outpost.result import CheckResult, ok
 
 
 class DummyDatasource(Datasource):
-    argument_name = "dummy"
+    pass
 
 
 @check(
     name="dummy",
     service_labels={"foo": "bar"},
     environments=[Environment("test")],
-    datasources=[DummyDatasource],
 )
 def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
     print("This is a running check.")
@@ -40,12 +39,13 @@ def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
 
 app = Outpost(
     checks=[dummy_check_function],
+    outpost_environment=Environment("test"),
 )
+
+app.register_datasource(DummyDatasource)
 
 
 def main() -> None:
-    DummyDatasource.instance = DummyDatasource()
-
     app.run_checks_once()
 
 

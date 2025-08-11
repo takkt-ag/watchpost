@@ -19,15 +19,20 @@ from __future__ import annotations
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any, TypeVar
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
 
 from . import http
 from .check import Check
+from .datasource import Datasource
+from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
 from .result import CheckState, ExecutionResult
+
+_D = TypeVar("_D", bound=Datasource)
 
 
 class Outpost:
@@ -35,12 +40,18 @@ class Outpost:
         self,
         *,
         checks: list[Check],
+        outpost_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
     ):
         self.checks = checks
+        self.outpost_environment = outpost_environment
         self.version = version
         self.executor = CheckExecutor(max_workers=max_workers)
+
+        self._datasource_definitions: dict[type[Datasource], dict[str, Any]] = {}
+        self._instantiated_datasources: dict[type[Datasource], Datasource] = {}
+
         self._starlette = Starlette(
             routes=http.routes,
         )
@@ -56,6 +67,13 @@ class Outpost:
             yield self
         finally:
             _cv.reset(_token)
+
+    def register_datasource(
+        self,
+        datasource_type: type[_D],
+        **kwargs: dict[str, Any],
+    ) -> None:
+        self._datasource_definitions[datasource_type] = kwargs
 
     def _generate_checkmk_agent_output(self) -> Generator[bytes]:
         yield b"<<<check_mk>>>\n"
@@ -73,7 +91,7 @@ class Outpost:
                 piggyback_host="",
                 service_name="Run checks",
                 service_labels={},
-                environment_name="NOTIMPLEMENTEDYET",
+                environment_name=self.outpost_environment.name,
                 check_state=CheckState.OK,
                 summary=f"Ran {len(self.checks)} checks",
                 details=details,
@@ -86,11 +104,38 @@ class Outpost:
         for execution_result in execution_results:
             yield from execution_result.generate_checkmk_output()
 
+    def _resolve_datasources(self, check: Check) -> dict[str, Datasource]:
+        datasources = {}
+        for parameter in check.signature.parameters.values():
+            if issubclass(parameter.annotation, Datasource):
+                if (
+                    datasource_kwargs := self._datasource_definitions.get(
+                        parameter.annotation
+                    )
+                ) is not None:
+                    if instantiated_datasource := self._instantiated_datasources.get(
+                        parameter.annotation
+                    ):
+                        datasources[parameter.name] = instantiated_datasource
+                        continue
+
+                    datasource = parameter.annotation(**datasource_kwargs)
+                    self._instantiated_datasources[parameter.annotation] = datasource
+                    datasources[parameter.name] = datasource
+                    continue
+                else:
+                    raise ValueError(
+                        f"No datasource definition for {parameter.annotation}"
+                    )
+
+        return datasources
+
     def run_checks(self) -> Generator[bytes]:
         yield from self._generate_checkmk_agent_output()
 
         for check in self.checks:
-            execution_results = check.run()
+            datasources = self._resolve_datasources(check)
+            execution_results = check.run(datasources=datasources)
             for execution_result in execution_results:
                 yield from execution_result.generate_checkmk_output()
 
@@ -99,7 +144,8 @@ class Outpost:
     def run_checks_once(self) -> None:
         with self.app_context():
             for check in self.checks:
-                execution_results = check.run()
+                datasources = self._resolve_datasources(check)
+                execution_results = check.run(datasources=datasources)
                 for execution_result in execution_results:
                     for chunk in execution_result.generate_checkmk_output():
                         sys.stdout.buffer.write(chunk)

@@ -13,27 +13,3 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-from __future__ import annotations
-
-from abc import ABC
-
-
-class DatasourceUnavailable(Exception):
-    pass
-
-
-class Datasource(ABC):
-    initialize_on_startup: bool = True
-
-    @classmethod
-    def available_datasources(cls) -> set[type[Datasource]]:
-        subclasses = set()
-        queue = [cls]
-        while queue:
-            class_ = queue.pop()
-            for subclass in class_.__subclasses__():
-                subclasses.add(subclass)
-                queue.append(subclass)
-
-        return subclasses
