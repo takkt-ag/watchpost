@@ -25,6 +25,7 @@ from starlette.types import Receive, Scope, Send
 
 from . import http
 from .check import Check
+from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
 from .result import CheckState, ExecutionResult
@@ -35,10 +36,12 @@ class Outpost:
         self,
         *,
         checks: list[Check],
+        outpost_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
     ):
         self.checks = checks
+        self.outpost_environment = outpost_environment
         self.version = version
         self.executor = CheckExecutor(max_workers=max_workers)
         self._starlette = Starlette(
@@ -73,7 +76,7 @@ class Outpost:
                 piggyback_host="",
                 service_name="Run checks",
                 service_labels={},
-                environment_name="NOTIMPLEMENTEDYET",
+                environment_name=self.outpost_environment.name,
                 check_state=CheckState.OK,
                 summary=f"Ran {len(self.checks)} checks",
                 details=details,

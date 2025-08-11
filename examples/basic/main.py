@@ -40,6 +40,7 @@ def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
 
 app = Outpost(
     checks=[dummy_check_function],
+    outpost_environment=Environment("test"),
 )
 
 

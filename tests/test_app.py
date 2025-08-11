@@ -27,6 +27,8 @@ from outpost.environment import Environment
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
 
+TEST_ENVIRONMENT = Environment("test-env")
+
 
 class TestDatasource(Datasource):
     argument_name = "test_datasource"
@@ -38,7 +40,10 @@ def test_outpost_initialization():
     mock_check = MagicMock(spec=Check)
 
     # Initialize the Outpost object
-    app = Outpost(checks=[mock_check])
+    app = Outpost(
+        checks=[mock_check],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Verify the Outpost object was initialized correctly
     assert app.checks == [mock_check]
@@ -47,7 +52,10 @@ def test_outpost_initialization():
 def test_app_context():
     """Test that the app_context method properly sets and resets the context variable."""
     # Create an Outpost instance
-    app = Outpost(checks=[])
+    app = Outpost(
+        checks=[],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Before entering the context, current_app should raise an error
     with pytest.raises(RuntimeError, match="Outpost application is not available"):
@@ -65,7 +73,10 @@ def test_app_context():
 def test_app_context_exception_handling():
     """Test that the app_context method properly handles exceptions."""
     # Create an Outpost instance
-    app = Outpost(checks=[])
+    app = Outpost(
+        checks=[],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Test that the context is properly reset even if an exception occurs
     try:
@@ -95,7 +106,10 @@ def test_run_checks_once():
     mock_check.run.return_value = [execution_result]
 
     # Initialize the Outpost object
-    app = Outpost(checks=[mock_check])
+    app = Outpost(
+        checks=[mock_check],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Mock sys.stdout.buffer.write to capture the output
     with patch("sys.stdout.buffer.write") as mock_write:
@@ -161,7 +175,10 @@ def test_run_checks_once_with_multiple_checks():
     mock_check2.run.return_value = [execution_result2]
 
     # Initialize the Outpost object with both checks
-    app = Outpost(checks=[mock_check1, mock_check2])
+    app = Outpost(
+        checks=[mock_check1, mock_check2],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Mock sys.stdout.buffer.write to capture the output
     with patch("sys.stdout.buffer.write") as mock_write:
@@ -230,12 +247,15 @@ def test_run_checks_once_with_real_check():
         check_function=check_func,
         service_name="test-service",
         service_labels={"env": "test"},
-        environments=[Environment("test-env")],
         datasources=[TestDatasource],
+        environments=[TEST_ENVIRONMENT],
     )
 
     # Initialize the Outpost object
-    app = Outpost(checks=[check])
+    app = Outpost(
+        checks=[check],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
 
     # Mock sys.stdout.buffer.write to capture the output
     with patch("sys.stdout.buffer.write") as mock_write:
