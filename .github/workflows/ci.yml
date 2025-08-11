@@ -28,6 +28,8 @@ jobs:
     - name: Set up Python
       run: uv python install
 
+    - name: Show dependency tree
+      run: uv tree
     - name: Verify licenses are allowed
       run: uv run licensecheck --zero
     - name: Generate up-to-date `THIRD_PARTY_LICENSES.md`
