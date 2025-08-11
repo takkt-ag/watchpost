@@ -41,7 +41,7 @@ def test_outpost_initialization():
     app = Outpost(checks=[mock_check])
 
     # Verify the Outpost object was initialized correctly
-    assert app._checks == [mock_check]
+    assert app.checks == [mock_check]
 
 
 def test_app_context():

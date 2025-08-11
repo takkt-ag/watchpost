@@ -20,8 +20,14 @@ import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 
+from starlette.applications import Starlette
+from starlette.types import Receive, Scope, Send
+
+from . import http
 from .check import Check
+from .executor import CheckExecutor
 from .globals import _cv
+from .result import CheckState, ExecutionResult
 
 
 class Outpost:
@@ -29,8 +35,19 @@ class Outpost:
         self,
         *,
         checks: list[Check],
+        version: str = "unknown",
+        max_workers: int | None = None,
     ):
-        self._checks = checks
+        self.checks = checks
+        self.version = version
+        self.executor = CheckExecutor(max_workers=max_workers)
+        self._starlette = Starlette(
+            routes=http.routes,
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        with self.app_context():
+            return await self._starlette(scope, receive, send)
 
     @contextmanager
     def app_context(self) -> Generator[Outpost]:
@@ -40,9 +57,48 @@ class Outpost:
         finally:
             _cv.reset(_token)
 
-    def run_checks_once(self):
+    def _generate_checkmk_agent_output(self) -> Generator[bytes]:
+        yield b"<<<check_mk>>>\n"
+        yield b"Version: outpost-"
+        yield self.version.encode("utf-8")
+        yield b"\n"
+        yield b"AgentOS: outpost\n"
+
+    def _generate_synthetic_result_outputs(self) -> Generator[bytes]:
+        def run_checks() -> ExecutionResult:
+            details = "Check functions:\n- "
+            details += "\n- ".join(check.name for check in self.checks)
+
+            return ExecutionResult(
+                piggyback_host="",
+                service_name="Run checks",
+                service_labels={},
+                environment_name="NOTIMPLEMENTEDYET",
+                check_state=CheckState.OK,
+                summary=f"Ran {len(self.checks)} checks",
+                details=details,
+            )
+
+        execution_results = [
+            run_checks(),
+        ]
+
+        for execution_result in execution_results:
+            yield from execution_result.generate_checkmk_output()
+
+    def run_checks(self) -> Generator[bytes]:
+        yield from self._generate_checkmk_agent_output()
+
+        for check in self.checks:
+            execution_results = check.run()
+            for execution_result in execution_results:
+                yield from execution_result.generate_checkmk_output()
+
+        yield from self._generate_synthetic_result_outputs()
+
+    def run_checks_once(self) -> None:
         with self.app_context():
-            for check in self._checks:
+            for check in self.checks:
                 execution_results = check.run()
                 for execution_result in execution_results:
                     for chunk in execution_result.generate_checkmk_output():

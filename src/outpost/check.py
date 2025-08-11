@@ -76,10 +76,14 @@ class Check:
     datasources: list[type[Datasource]]
     invocation_information: InvocationInformation | None = None
 
-    def __post_init__(self):
+    @property
+    def name(self) -> str:
+        return f"{self.check_function.__module__}.{self.check_function.__qualname__}"
+
+    def __post_init__(self) -> None:
         self._check_function_signature = inspect.signature(self.check_function)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
         return self.check_function(*args, **kwargs)
 
     def run(self) -> list[ExecutionResult]:

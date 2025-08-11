@@ -14,6 +14,7 @@ Find a list of packages below
 
 |Compatible|Package|
 |:--|:--|
+|✔|anyio|
 |✔|appdirs|
 |✔|attrs|
 |✔|boolean-py|
@@ -21,6 +22,9 @@ Find a list of packages below
 |✔|certifi|
 |✔|charset-normalizer|
 |✔|fhconfparser|
+|✔|h11|
+|✔|httpcore|
+|✔|httpx|
 |✔|idna|
 |✔|iniconfig|
 |✔|lefthook|
@@ -43,12 +47,21 @@ Find a list of packages below
 |✔|requirements-parser|
 |✔|rich|
 |✔|ruff|
+|✔|sniffio|
+|✔|starlette|
 |✔|tomli|
 |✔|ty|
 |✔|typing-extensions|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
+
+### anyio-4.10.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT
+- Compatible: True
 
 ### appdirs-1.4.4
 
@@ -85,11 +98,11 @@ Find a list of packages below
 - License: MOZILLA PUBLIC LICENSE 2.0 _MPL 2.0_
 - Compatible: True
 
-### charset-normalizer-3.4.2
+### charset-normalizer-3.4.3
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
-- License: MIT LICENSE
+- License: MIT
 - Compatible: True
 
 ### fhconfparser-2024.1
@@ -97,6 +110,27 @@ Find a list of packages below
 - HomePage: https://github.com/FHPythonUtils/FHConfParser
 - Author: FredHappyface
 - License: MIT LICENSE
+- Compatible: True
+
+### h11-0.16.0
+
+- HomePage: https://github.com/python-hyper/h11
+- Author: Nathaniel J. Smith
+- License: MIT LICENSE
+- Compatible: True
+
+### httpcore-1.0.9
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: BSD LICENSE
+- Compatible: True
+
+### httpx-0.28.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: BSD LICENSE
 - Compatible: True
 
 ### idna-3.10
@@ -246,11 +280,25 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ruff-0.12.7
+### ruff-0.12.8
 
 - HomePage: https://docs.astral.sh/ruff
 - Author: UNKNOWN
 - License: MIT LICENSE
+- Compatible: True
+
+### sniffio-1.3.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: APACHE SOFTWARE LICENSE;; MIT LICENSE
+- Compatible: True
+
+### starlette-0.47.2
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: BSD LICENSE
 - Compatible: True
 
 ### tomli-2.2.1
@@ -288,7 +336,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### uv-0.8.5
+### uv-0.8.8
 
 - HomePage: https://pypi.org/project/uv/
 - Author: UNKNOWN

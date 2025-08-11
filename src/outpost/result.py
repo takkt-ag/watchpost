@@ -20,7 +20,7 @@ import base64
 import io
 import json
 import traceback
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from enum import Enum
 from types import GeneratorType
@@ -55,7 +55,7 @@ class Thresholds:
     warning: int | float
     critical: int | float
 
-    def to_json_compatible_dict(self):
+    def to_json_compatible_dict(self) -> dict[str, int | float]:
         return {
             "warning": self.warning,
             "critical": self.critical,
@@ -96,11 +96,11 @@ class CheckState(Enum):
     CRIT = 2
     UNKNOWN = 3
 
-    def __lt__(self, other):
+    def __lt__(self, other: CheckState) -> bool:
         return self.value < other.value
 
     @property
-    def check_function(self):
+    def check_function(self) -> Callable[..., CheckResult]:
         match self:
             case CheckState.OK:
                 return ok
@@ -110,6 +110,7 @@ class CheckState(Enum):
                 return crit
             case CheckState.UNKNOWN:
                 return unknown
+        raise ValueError("Unknown check state")
 
 
 @dataclass(init=False)
@@ -213,7 +214,7 @@ class OngoingCheckResult:
         summary: str
         details: Details | None
 
-        def __str__(self):
+        def __str__(self) -> str:
             if self.details:
                 return f"{self.summary}:\n{normalize_details(self.details)}\n"
             return f"{self.summary}\n"
@@ -247,7 +248,7 @@ class OngoingCheckResult:
 
         return max(result.check_state for result in self.results)
 
-    def add_check_result(self, check_result: CheckResult):
+    def add_check_result(self, check_result: CheckResult) -> None:
         self.results.append(
             OngoingCheckResult.Partial(
                 check_state=check_result.check_state,
@@ -256,20 +257,20 @@ class OngoingCheckResult:
             )
         )
 
-    def ok(self, summary: str, details: Details | None = None):
+    def ok(self, summary: str, details: Details | None = None) -> None:
         self.results.append(OngoingCheckResult.Partial(CheckState.OK, summary, details))
 
-    def warn(self, summary: str, details: Details | None = None):
+    def warn(self, summary: str, details: Details | None = None) -> None:
         self.results.append(
             OngoingCheckResult.Partial(CheckState.WARN, summary, details)
         )
 
-    def crit(self, summary: str, details: Details | None = None):
+    def crit(self, summary: str, details: Details | None = None) -> None:
         self.results.append(
             OngoingCheckResult.Partial(CheckState.CRIT, summary, details)
         )
 
-    def unknown(self, summary: str, details: Details | None = None):
+    def unknown(self, summary: str, details: Details | None = None) -> None:
         self.results.append(
             OngoingCheckResult.Partial(CheckState.UNKNOWN, summary, details)
         )
