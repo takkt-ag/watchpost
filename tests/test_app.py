@@ -14,8 +14,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,11 +25,13 @@ from outpost.environment import Environment
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
 
+from .utils import decode_checkmk_output
+
 TEST_ENVIRONMENT = Environment("test-env")
 
 
 class TestDatasource(Datasource):
-    argument_name = "test_datasource"
+    pass
 
 
 def test_outpost_initialization():
@@ -131,16 +131,8 @@ def test_run_checks_once():
         # Collect all the data written to stdout
         all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
 
-        # Find the base64 encoded part
-        import re
-
-        base64_pattern = re.compile(rb"<<<outpost>>>\n(.*?)\n<<<<>>>>", re.DOTALL)
-        match = base64_pattern.search(all_data)
-        assert match is not None
-
-        # Decode the base64 data
-        base64_data = match.group(1)
-        json_data = json.loads(base64.b64decode(base64_data))
+        # Decode the base64 data using the utility function
+        json_data = decode_checkmk_output(all_data)[0]
 
         # Verify the decoded data contains the expected values
         assert json_data["service_name"] == "test-service"
@@ -196,18 +188,8 @@ def test_run_checks_once_with_multiple_checks():
         assert b"test-host-1" in all_data
         assert b"test-host-2" in all_data
 
-        # Find the base64 encoded parts
-        import re
-
-        base64_pattern = re.compile(rb"<<<outpost>>>\n(.*?)\n<<<<>>>>", re.DOTALL)
-        matches = base64_pattern.finditer(all_data)
-
-        # Decode and verify each match
-        json_data_list = []
-        for match in matches:
-            base64_data = match.group(1)
-            json_data = json.loads(base64.b64decode(base64_data))
-            json_data_list.append(json_data)
+        # Decode the base64 data using the utility function
+        json_data_list = decode_checkmk_output(all_data)
 
         # Verify we found two results
         assert len(json_data_list) == 2
@@ -239,15 +221,11 @@ def test_run_checks_once_with_real_check():
         _ = test_datasource
         return ok("Test passed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Create a real Check object
     check = Check(
         check_function=check_func,
         service_name="test-service",
         service_labels={"env": "test"},
-        datasources=[TestDatasource],
         environments=[TEST_ENVIRONMENT],
     )
 
@@ -256,6 +234,7 @@ def test_run_checks_once_with_real_check():
         checks=[check],
         outpost_environment=TEST_ENVIRONMENT,
     )
+    app.register_datasource(TestDatasource)
 
     # Mock sys.stdout.buffer.write to capture the output
     with patch("sys.stdout.buffer.write") as mock_write:
@@ -269,16 +248,8 @@ def test_run_checks_once_with_real_check():
         expected_host = "test-service-test-env-NOTIMPLEMENTEDYET"
         assert expected_host.encode() in all_data
 
-        # Find the base64 encoded part
-        import re
-
-        base64_pattern = re.compile(rb"<<<outpost>>>\n(.*?)\n<<<<>>>>", re.DOTALL)
-        match = base64_pattern.search(all_data)
-        assert match is not None
-
-        # Decode the base64 data
-        base64_data = match.group(1)
-        json_data = json.loads(base64.b64decode(base64_data))
+        # Decode the base64 data using the utility function
+        json_data = decode_checkmk_output(all_data)[0]
 
         # Verify the decoded data contains the expected values
         assert json_data["service_name"] == "test-service"

@@ -18,12 +18,15 @@ from unittest.mock import patch
 
 from starlette.testclient import TestClient
 
+from outpost import Datasource
 from outpost.app import Outpost
 from outpost.check import check
 from outpost.environment import Environment
 from outpost.executor import CheckExecutor
 from outpost.http import routes
 from outpost.result import ok
+
+from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 
@@ -118,7 +121,6 @@ def test_root_with_real_check():
     @check(
         name="simple-check",
         service_labels={"test": "true"},
-        datasources=[],
         environments=[TEST_ENVIRONMENT],
     )
     def simple_check():
@@ -141,6 +143,94 @@ def test_root_with_real_check():
 
     assert b"<<<outpost>>>" in response.content
     assert b"simple-check" in response.content
+
+    checkmk_output = decode_checkmk_output(response.content)
+    for item in checkmk_output:
+        item.pop("check_definition", None)
+
+    assert sorted(checkmk_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "service_name": "simple-check",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Simple check passed",
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "Run checks",
+                "service_labels": {},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Ran 1 checks",
+                "metrics": [],
+                "details": "Check functions:\n- tests.test_http.test_root_with_real_check.<locals>.simple_check",
+            },
+        ],
+        key=lambda result: result["service_name"],
+    )
+
+
+def test_root_with_real_check_and_datasource():
+    class TestDatasource(Datasource):
+        pass
+
+    @check(
+        name="simple-check",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+    )
+    def simple_check(test_datasource: TestDatasource):
+        return ok(f"Simple check passed, got {type(test_datasource)}")
+
+    app = Outpost(
+        checks=[simple_check],
+        outpost_environment=TEST_ENVIRONMENT,
+    )
+    app.register_datasource(TestDatasource)
+    client = TestClient(app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+
+    assert b"<<<check_mk>>>" in response.content
+    assert b"Version: outpost-unknown" in response.content
+    assert b"AgentOS: outpost" in response.content
+
+    assert b"<<<outpost>>>" in response.content
+    assert b"simple-check" in response.content
+
+    checkmk_output = decode_checkmk_output(response.content)
+    for item in checkmk_output:
+        item.pop("check_definition", None)
+
+    assert sorted(checkmk_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "service_name": "simple-check",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Simple check passed, got <class 'tests.test_http.test_root_with_real_check_and_datasource.<locals>.TestDatasource'>",
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "Run checks",
+                "service_labels": {},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Ran 1 checks",
+                "metrics": [],
+                "details": "Check functions:\n- tests.test_http.test_root_with_real_check_and_datasource.<locals>.simple_check",
+            },
+        ],
+        key=lambda result: result["service_name"],
+    )
 
 
 def test_routes_configuration():

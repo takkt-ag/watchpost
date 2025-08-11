@@ -73,12 +73,15 @@ class Check:
     service_name: str
     service_labels: dict[str, Any]
     environments: list[Environment]
-    datasources: list[type[Datasource]]
     invocation_information: InvocationInformation | None = None
 
     @property
     def name(self) -> str:
         return f"{self.check_function.__module__}.{self.check_function.__qualname__}"
+
+    @property
+    def signature(self) -> inspect.Signature:
+        return self._check_function_signature
 
     def __post_init__(self) -> None:
         self._check_function_signature = inspect.signature(self.check_function)
@@ -86,10 +89,9 @@ class Check:
     def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
         return self.check_function(*args, **kwargs)
 
-    def run(self) -> list[ExecutionResult]:
+    def run(self, datasources: dict[str, Datasource]) -> list[ExecutionResult]:
         kwargs: dict[str, Environment | Datasource] = {
-            datasource.argument_name: datasource.instance
-            for datasource in self.datasources
+            **datasources,
         }
 
         collected_results = []
@@ -136,7 +138,6 @@ def check(
     name: str,
     service_labels: dict[str, Any],
     environments: list[Environment],
-    datasources: list[type[Datasource]],
 ) -> Callable[[CheckFunction], Check]:
     check_definition = get_invocation_information()
 
@@ -146,7 +147,6 @@ def check(
             service_name=name,
             service_labels=service_labels,
             environments=environments,
-            datasources=datasources,
             invocation_information=check_definition,
         )
 

@@ -20,13 +20,15 @@ from outpost.environment import Environment
 from outpost.result import CheckState, crit, ok, unknown, warn
 from outpost.utils import InvocationInformation
 
+from .utils import decode_checkmk_output
+
 
 class TestDatasource(Datasource):
-    argument_name = "test_datasource"
+    pass
 
 
 class AnotherTestDatasource(Datasource):
-    argument_name = "another_datasource"
+    pass
 
 
 def test_check_initialization():
@@ -43,7 +45,6 @@ def test_check_initialization():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Verify the Check object was initialized correctly
@@ -52,7 +53,6 @@ def test_check_initialization():
     assert check.service_labels == {"env": "test"}
     assert len(check.environments) == 1
     assert check.environments[0].name == "test_env"
-    assert check.datasources == [TestDatasource]
     assert check.invocation_information is None
 
 
@@ -70,7 +70,6 @@ def test_check_with_invocation_information():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
         invocation_information=invocation_info,
     )
 
@@ -92,7 +91,6 @@ def test_generate_hostname():
         service_name="test_service",
         service_labels={},
         environments=[],
-        datasources=[],
     )
 
     env = Environment("test_env")
@@ -110,20 +108,20 @@ def test_run_with_ok_result():
         _ = test_datasource
         return ok("Everything is fine")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -143,20 +141,20 @@ def test_run_with_critical_result():
         _ = test_datasource
         return crit("Something is wrong")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -172,20 +170,20 @@ def test_run_with_warning_result():
         _ = test_datasource
         return warn("Something might be wrong")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -201,20 +199,20 @@ def test_run_with_unknown_result():
         _ = test_datasource
         return unknown("Status is unknown")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -230,20 +228,20 @@ def test_run_with_multiple_environments():
         _ = test_datasource
         return ok("Checked environment")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object with multiple environments
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("env1"), Environment("env2"), Environment("env3")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -264,21 +262,21 @@ def test_run_with_multiple_datasources():
         _ = another_datasource
         return ok("Multiple datasources used")
 
-    # Set up the datasources
-    TestDatasource.instance = TestDatasource()
-    AnotherTestDatasource.instance = AnotherTestDatasource()
-
     # Initialize the Check object with multiple datasources
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource, AnotherTestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+            "another_datasource": AnotherTestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -294,20 +292,20 @@ def test_run_with_environment_parameter():
         _ = test_datasource
         return ok(f"Checked environment: {environment.name}")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -327,19 +325,19 @@ def test_run_captures_stdout_stderr():
         print("This is printed to stderr", file=sys.stderr)  # noqa: T201
         return ok("Check completed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -363,20 +361,20 @@ def test_run_with_list_of_results():
             crit("Third check failed"),
         ]
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -398,20 +396,20 @@ def test_run_with_generator_of_results():
         yield warn("Second check has a warning")
         yield crit("Third check failed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Initialize the Check object
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
 
     # Run the check
-    results = check.run()
+    results = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -433,7 +431,6 @@ def test_check_decorator_returns_check_instance():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -445,7 +442,6 @@ def test_check_decorator_returns_check_instance():
     assert decorated_func.service_labels == {"env": "test"}
     assert len(decorated_func.environments) == 1
     assert decorated_func.environments[0].name == "test_env"
-    assert decorated_func.datasources == [TestDatasource]
 
 
 def test_decorated_function_can_be_called_directly():
@@ -455,17 +451,13 @@ def test_decorated_function_can_be_called_directly():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
         return ok("Test passed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Call the decorated function directly
-    result = decorated_func(TestDatasource.instance)
+    result = decorated_func(TestDatasource())
 
     # Verify the result
     assert result.check_state == CheckState.OK
@@ -479,17 +471,17 @@ def test_decorated_function_run_method():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
         return ok("Test passed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -509,7 +501,6 @@ def test_decorated_function_with_different_result_types():
         name="ok_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def ok_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -520,7 +511,6 @@ def test_decorated_function_with_different_result_types():
         name="warn_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def warn_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -531,7 +521,6 @@ def test_decorated_function_with_different_result_types():
         name="crit_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def crit_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -542,20 +531,32 @@ def test_decorated_function_with_different_result_types():
         name="unknown_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def unknown_func(test_datasource: TestDatasource):
         _ = test_datasource
         return unknown("Status is unknown")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the checks
-    ok_results = ok_func.run()
-    warn_results = warn_func.run()
-    crit_results = crit_func.run()
-    unknown_results = unknown_func.run()
+    ok_results = ok_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
+    warn_results = warn_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
+    crit_results = crit_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
+    unknown_results = unknown_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the OK results
     assert len(ok_results) == 1
@@ -585,17 +586,17 @@ def test_decorated_function_with_multiple_environments():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("env1"), Environment("env2"), Environment("env3")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
         return ok("Checked environment")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -611,7 +612,6 @@ def test_decorated_function_with_multiple_datasources():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource, AnotherTestDatasource],
     )
     def decorated_func(
         test_datasource: TestDatasource,
@@ -621,12 +621,13 @@ def test_decorated_function_with_multiple_datasources():
         _ = another_datasource
         return ok("Multiple datasources used")
 
-    # Set up the datasources
-    TestDatasource.instance = TestDatasource()
-    AnotherTestDatasource.instance = AnotherTestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+            "another_datasource": AnotherTestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -641,17 +642,17 @@ def test_decorated_function_with_environment_parameter():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(environment: Environment, test_datasource: TestDatasource):
         _ = test_datasource
         return ok(f"Checked environment: {environment.name}")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -666,7 +667,6 @@ def test_decorated_function_captures_stdout_stderr():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -676,11 +676,12 @@ def test_decorated_function_captures_stdout_stderr():
         print("This is printed to stderr", file=sys.stderr)  # noqa: T201
         return ok("Check completed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -699,7 +700,6 @@ def test_decorated_function_with_list_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -709,11 +709,12 @@ def test_decorated_function_with_list_of_results():
             crit("Third check failed"),
         ]
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -732,7 +733,6 @@ def test_decorated_function_with_generator_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -740,11 +740,12 @@ def test_decorated_function_with_generator_of_results():
         yield warn("Second check has a warning")
         yield crit("Third check failed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 3
@@ -763,7 +764,6 @@ def test_check_decorator_captures_invocation_information():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -786,17 +786,17 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
         return ok("Test passed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Verify the results
     assert len(results) == 1
@@ -813,35 +813,25 @@ def test_check_decorator_invocation_information_in_checkmk_output():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
-        datasources=[TestDatasource],
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
         return ok("Test passed")
 
-    # Set up the datasource
-    TestDatasource.instance = TestDatasource()
-
     # Run the check
-    results = decorated_func.run()
+    results = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+    )
 
     # Generate the CheckMK output
     output_generator = results[0].generate_checkmk_output()
     output_bytes = b"".join(list(output_generator))
     output_str = output_bytes.decode("utf-8")
 
-    # Extract and decode the base64 encoded JSON
-    import base64
-    import json
-    import re
-
-    # Find the base64 encoded part between the outpost markers
-    match = re.search(r"<<<outpost>>>\n(.*?)\n<<<<", output_str, re.DOTALL)
-    assert match is not None, "Could not find base64 encoded data in output"
-
-    base64_data = match.group(1)
-    decoded_data = base64.b64decode(base64_data).decode("utf-8")
-    json_data = json.loads(decoded_data)
+    # Extract and decode the base64 encoded JSON using the utility function
+    json_data = decode_checkmk_output(output_str)[0]
 
     # Verify the output contains the check definition
     assert "check_definition" in json_data
