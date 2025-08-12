@@ -14,6 +14,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import functools
 import hashlib
 import inspect
@@ -23,7 +25,10 @@ from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from redis import Redis
 
 T = TypeVar("T")
 
@@ -178,6 +183,98 @@ class DiskStorage(Storage):
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("wb") as file:
             pickle.dump(entry, file)
+
+
+class RedisStorage(Storage):
+    def __init__(
+        self,
+        redis_client: Redis,
+        *,
+        use_redis_ttl: bool = True,
+        redis_key_infix: str | None = None,
+    ):
+        """
+        Initialize a Redis-based storage for cache entries.
+
+        :param redis_client: An instantiated Redis client
+        :param use_redis_ttl: Whether to use the Redis TTL for cache entries. If
+        `True`, expired entries will never be returned, i.e.
+        `get(..., return_expired=True)` will always return `None` if the entry
+        has expired.
+        :param redis_key_infix: An optional infix to use for Redis keys to
+        ensure the keys don't collide between multiple caches or outposts.
+        """
+        self.redis = redis_client
+        self._use_redis_ttl = use_redis_ttl
+        self._redis_key_infix = redis_key_infix
+
+    def _get_redis_key(self, cache_key: CacheKey) -> str:
+        """
+        Generate a Redis key from a CacheKey.
+
+        :param cache_key: The cache key to generate a Redis key for
+        :return: A string key for use with Redis
+        """
+        key_hash = hashlib.sha256(
+            str((cache_key.package, cache_key.key)).encode()
+        ).hexdigest()
+
+        infix = ""
+        if self._redis_key_infix:
+            infix = f"{self._redis_key_infix}:"
+
+        return f"outpost:cache:{infix}v{CacheEntry.VERSION}:{key_hash}"
+
+    def get(
+        self,
+        cache_key: CacheKey,
+        return_expired: bool = False,
+    ) -> CacheEntry[T] | None:
+        """
+        Retrieve a cache entry from Redis.
+
+        :param cache_key: The key to retrieve the value for
+        :param return_expired: Whether to return a key that has expired
+        :return: A cache entry if found, otherwise None
+        """
+        redis_key = self._get_redis_key(cache_key)
+        data: Any = self.redis.get(redis_key)
+
+        if data is None:
+            return None
+
+        cache_entry: CacheEntry[T] = pickle.loads(data)
+
+        if cache_entry.is_expired():
+            self.redis.delete(redis_key)
+            if return_expired:
+                return cache_entry
+            return None
+
+        return cache_entry
+
+    def store(
+        self,
+        entry: CacheEntry,
+    ) -> None:
+        """
+        Store a cache entry in Redis.
+
+        :param entry: The cache entry to store
+        """
+        redis_key = self._get_redis_key(entry.cache_key)
+        data = pickle.dumps(entry)
+
+        if self._use_redis_ttl and entry.ttl is not None and entry.added_at is not None:
+            expiry_seconds = int(entry.ttl.total_seconds())
+            if expiry_seconds > 0:
+                self.redis.setex(redis_key, expiry_seconds, data)
+            else:
+                # If the entry is already expired, ensure we don't hold a
+                # potentially old version in Redis anymore.
+                self.redis.delete(redis_key)
+        else:
+            self.redis.set(redis_key, data)
 
 
 class Cache:

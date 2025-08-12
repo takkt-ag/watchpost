@@ -28,7 +28,11 @@ dev = [
     "mypy>=1.17.1",
     "pytest>=8.4.1",
     "ruff>=0.12.7",
+    "testcontainers[redis]>=4.12.0",
     "ty>=0.0.1a17",
+]
+redis = [
+    "redis>=6.4.0",
 ]
 
 [tool.licensecheck]
@@ -54,6 +58,11 @@ disallow_untyped_decorators = true
 
 exclude = [
     "tests/.*"
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "docker: marks tests that require Docker (deselect with '-m \"not docker\"')",
 ]
 
 [tool.ruff.lint]
