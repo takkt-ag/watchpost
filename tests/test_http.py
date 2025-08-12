@@ -122,6 +122,7 @@ def test_root_with_real_check():
         name="simple-check",
         service_labels={"test": "true"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def simple_check():
         return ok("Simple check passed")
@@ -181,6 +182,7 @@ def test_root_with_real_check_and_datasource():
         name="simple-check",
         service_labels={"test": "true"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def simple_check(test_datasource: TestDatasource):
         return ok(f"Simple check passed, got {type(test_datasource)}")

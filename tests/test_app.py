@@ -227,6 +227,7 @@ def test_run_checks_once_with_real_check():
         service_name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
 
     # Initialize the Outpost object

@@ -192,6 +192,7 @@ def test_check_with_factory_datasource() -> None:
         name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def test_check(
         datasource: Annotated[
@@ -231,6 +232,7 @@ def test_check_with_multiple_factory_datasources() -> None:
         name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def test_check(
         datasource1: Annotated[
@@ -281,6 +283,7 @@ def test_check_with_mixed_datasources() -> None:
         name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def test_check(
         regular: TestDatasource,
@@ -335,6 +338,7 @@ def test_outpost_resolve_datasources_with_factory() -> None:
         service_name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
 
     # Create an Outpost instance
@@ -363,6 +367,7 @@ def test_outpost_run_checks_with_factory() -> None:
         name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def test_check(
         datasource: Annotated[
@@ -431,6 +436,7 @@ def test_annotated_with_non_fromfactory() -> None:
         service_name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
 
     # Create an Outpost instance

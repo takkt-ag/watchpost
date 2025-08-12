@@ -45,6 +45,7 @@ def test_check_initialization():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Verify the Check object was initialized correctly
@@ -71,6 +72,7 @@ def test_check_with_invocation_information():
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
         invocation_information=invocation_info,
+        cache_for=None,
     )
 
     assert check.invocation_information
@@ -91,6 +93,7 @@ def test_generate_hostname():
         service_name="test_service",
         service_labels={},
         environments=[],
+        cache_for=None,
     )
 
     env = Environment("test_env")
@@ -114,6 +117,7 @@ def test_run_with_ok_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -147,6 +151,7 @@ def test_run_with_critical_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -176,6 +181,7 @@ def test_run_with_warning_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -205,6 +211,7 @@ def test_run_with_unknown_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -234,6 +241,7 @@ def test_run_with_multiple_environments():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("env1"), Environment("env2"), Environment("env3")],
+        cache_for=None,
     )
 
     # Run the check
@@ -268,6 +276,7 @@ def test_run_with_multiple_datasources():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -298,6 +307,7 @@ def test_run_with_environment_parameter():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -331,6 +341,7 @@ def test_run_captures_stdout_stderr():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     results = check.run(
@@ -367,6 +378,7 @@ def test_run_with_list_of_results():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -402,6 +414,7 @@ def test_run_with_generator_of_results():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -431,6 +444,7 @@ def test_check_decorator_returns_check_instance():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -451,6 +465,7 @@ def test_decorated_function_can_be_called_directly():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -471,6 +486,7 @@ def test_decorated_function_run_method():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -501,6 +517,7 @@ def test_decorated_function_with_different_result_types():
         name="ok_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def ok_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -511,6 +528,7 @@ def test_decorated_function_with_different_result_types():
         name="warn_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def warn_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -521,6 +539,7 @@ def test_decorated_function_with_different_result_types():
         name="crit_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def crit_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -531,6 +550,7 @@ def test_decorated_function_with_different_result_types():
         name="unknown_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def unknown_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -586,6 +606,7 @@ def test_decorated_function_with_multiple_environments():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("env1"), Environment("env2"), Environment("env3")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -612,6 +633,7 @@ def test_decorated_function_with_multiple_datasources():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(
         test_datasource: TestDatasource,
@@ -642,6 +664,7 @@ def test_decorated_function_with_environment_parameter():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(environment: Environment, test_datasource: TestDatasource):
         _ = test_datasource
@@ -667,6 +690,7 @@ def test_decorated_function_captures_stdout_stderr():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -700,6 +724,7 @@ def test_decorated_function_with_list_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -733,6 +758,7 @@ def test_decorated_function_with_generator_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -764,6 +790,7 @@ def test_check_decorator_captures_invocation_information():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -786,6 +813,7 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -813,6 +841,7 @@ def test_check_decorator_invocation_information_in_checkmk_output():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource

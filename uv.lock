@@ -313,6 +313,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "starlette" },
+    { name = "timelength" },
 ]
 
 [package.dev-dependencies]
@@ -331,7 +332,10 @@ redis = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "starlette", specifier = ">=0.47.2" }]
+requires-dist = [
+    { name = "starlette", specifier = ">=0.47.2" },
+    { name = "timelength", specifier = ">=3.0.2" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -560,6 +564,15 @@ wheels = [
 [package.optional-dependencies]
 redis = [
     { name = "redis" },
+]
+
+[[package]]
+name = "timelength"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/4b/5850b780013015991b193a2d9c5a6a592452b3449849e3f12aa96b21a159/timelength-3.0.2.tar.gz", hash = "sha256:ee0d84e1885070be4b211a943ff8ab60cf25371a14147f090873ce933ed3ad40", size = 38508, upload-time = "2025-05-20T02:17:22.977Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bc/67/645a21f4a7313706eaf3e2794355283109216acfe937ec4d9fb040cf445e/timelength-3.0.2-py3-none-any.whl", hash = "sha256:c849f275f3bf5b5e5df1ef52f47a6f0d11e8b531ebcc0dc8d08c17e95c68aeb3", size = 37275, upload-time = "2025-05-20T02:17:21.738Z" },
 ]
 
 [[package]]

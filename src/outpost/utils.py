@@ -16,7 +16,10 @@
 
 import inspect
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
+
+from timelength import TimeLength  # type: ignore
 
 import outpost
 
@@ -47,3 +50,12 @@ def get_invocation_information() -> InvocationInformation | None:
         relative_path=str(relevant_module_path.relative_to(root_directory)),
         line_number=relevant_frame.f_lineno,
     )
+
+
+def normalize_to_timedelta(value: timedelta | str | None) -> timedelta | None:
+    if value is None:
+        return None
+    if isinstance(value, timedelta):
+        return value
+
+    return timedelta(seconds=TimeLength(value).result.seconds)

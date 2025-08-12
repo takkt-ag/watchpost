@@ -45,6 +45,7 @@ class Boto3(DatasourceFactory):
     name="dummy",
     service_labels={"foo": "bar"},
     environments=[Environment("test")],
+    cache_for=None,
 )
 def dummy_check_function(
     dummy: DummyDatasource,
