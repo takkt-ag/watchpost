@@ -21,6 +21,7 @@ Find a list of packages below
 |✔|cattrs|
 |✔|certifi|
 |✔|charset-normalizer|
+|✔|docker|
 |✔|fhconfparser|
 |✔|h11|
 |✔|httpcore|
@@ -42,6 +43,8 @@ Find a list of packages below
 |✔|pluggy|
 |✔|pygments|
 |✔|pytest|
+|✔|python-dotenv|
+|✔|redis|
 |✔|requests|
 |✔|requests-cache|
 |✔|requirements-parser|
@@ -49,12 +52,14 @@ Find a list of packages below
 |✔|ruff|
 |✔|sniffio|
 |✔|starlette|
+|✔|testcontainers|
 |✔|tomli|
 |✔|ty|
 |✔|typing-extensions|
 |✔|url-normalize|
 |✔|urllib3|
 |✔|uv|
+|✔|wrapt|
 
 ### anyio-4.10.0
 
@@ -103,6 +108,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: MIT
+- Compatible: True
+
+### docker-7.1.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: APACHE SOFTWARE LICENSE
 - Compatible: True
 
 ### fhconfparser-2024.1
@@ -252,6 +264,20 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
+### python-dotenv-1.1.1
+
+- HomePage: https://github.com/theskumar/python-dotenv
+- Author: Saurabh Kumar
+- License: BSD LICENSE
+- Compatible: True
+
+### redis-6.4.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
+- Compatible: True
+
 ### requests-2.32.4
 
 - HomePage: https://requests.readthedocs.io
@@ -301,6 +327,13 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
+### testcontainers-4.12.0
+
+- HomePage: UNKNOWN
+- Author: Sergey Pirogov
+- License: APACHE SOFTWARE LICENSE
+- Compatible: True
+
 ### tomli-2.2.1
 
 - HomePage: UNKNOWN
@@ -341,5 +374,12 @@ Find a list of packages below
 - HomePage: https://pypi.org/project/uv/
 - Author: UNKNOWN
 - License: APACHE SOFTWARE LICENSE;; MIT LICENSE
+- Compatible: True
+
+### wrapt-1.17.3
+
+- HomePage: https://github.com/GrahamDumpleton/wrapt
+- Author: Graham Dumpleton
+- License: BSD LICENSE
 - Compatible: True
 

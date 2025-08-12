@@ -54,8 +54,10 @@ dev = [
     { name = "mypy", specifier = ">=1.17.1" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "ruff", specifier = ">=0.12.7" },
+    { name = "testcontainers", extras = ["redis"], specifier = ">=4.12.0" },
     { name = "ty", specifier = ">=0.0.1a17" },
 ]
+redis = [{ name = "redis", specifier = ">=6.4.0" }]
 
 [[package]]
 name = "sniffio"
