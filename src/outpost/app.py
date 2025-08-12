@@ -19,20 +19,21 @@ from __future__ import annotations
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar, get_args, get_origin
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
 
 from . import http
 from .check import Check
-from .datasource import Datasource
+from .datasource import Datasource, DatasourceFactory, FromFactory
 from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
 from .result import CheckState, ExecutionResult
 
 _D = TypeVar("_D", bound=Datasource)
+_DF = TypeVar("_DF", bound=DatasourceFactory)
 
 
 class Outpost:
@@ -50,7 +51,10 @@ class Outpost:
         self.executor = CheckExecutor(max_workers=max_workers)
 
         self._datasource_definitions: dict[type[Datasource], dict[str, Any]] = {}
-        self._instantiated_datasources: dict[type[Datasource], Datasource] = {}
+        self._datasource_factories: dict[type, DatasourceFactory] = {}
+        self._instantiated_datasources: dict[
+            type[Datasource] | tuple[type[DatasourceFactory], int, int], Datasource
+        ] = {}
 
         self._starlette = Starlette(
             routes=http.routes,
@@ -74,6 +78,9 @@ class Outpost:
         **kwargs: dict[str, Any],
     ) -> None:
         self._datasource_definitions[datasource_type] = kwargs
+
+    def register_datasource_factory(self, factory_type: type[_DF]) -> None:
+        self._datasource_factories[factory_type] = factory_type()
 
     def _generate_checkmk_agent_output(self) -> Generator[bytes]:
         yield b"<<<check_mk>>>\n"
@@ -104,29 +111,72 @@ class Outpost:
         for execution_result in execution_results:
             yield from execution_result.generate_checkmk_output()
 
+    def _resolve_datasource(self, datasource_type: type[_D]) -> Datasource:
+        if instantiated_datasource := self._instantiated_datasources.get(
+            datasource_type
+        ):
+            return instantiated_datasource
+
+        datasource_kwargs = self._datasource_definitions.get(datasource_type)
+        if datasource_kwargs is None:
+            raise ValueError(f"No datasource definition for {datasource_type}")
+
+        datasource = datasource_type(**datasource_kwargs)
+        self._instantiated_datasources[datasource_type] = datasource
+        return datasource
+
+    def _resolve_datasource_from_factory(self, from_factory: FromFactory) -> Datasource:
+        if instantiated_datasource := self._instantiated_datasources.get(
+            from_factory.cache_key
+        ):
+            return instantiated_datasource
+
+        if datasource_factory := self._datasource_factories.get(
+            from_factory.factory_type
+        ):
+            datasource = datasource_factory.new(
+                *from_factory.args,
+                **from_factory.kwargs,
+            )
+            self._instantiated_datasources[from_factory.cache_key] = datasource
+            return datasource
+
+        raise ValueError(
+            f"No datasource factory for {from_factory.factory_type}. "
+            f"Make sure you have registered the factory using register_datasource_factory({from_factory.factory_type.__name__}) "
+            f"before running checks."
+        )
+
     def _resolve_datasources(self, check: Check) -> dict[str, Datasource]:
         datasources = {}
         for parameter in check.signature.parameters.values():
-            if issubclass(parameter.annotation, Datasource):
-                if (
-                    datasource_kwargs := self._datasource_definitions.get(
-                        parameter.annotation
-                    )
-                ) is not None:
-                    if instantiated_datasource := self._instantiated_datasources.get(
-                        parameter.annotation
-                    ):
-                        datasources[parameter.name] = instantiated_datasource
-                        continue
+            if isinstance(parameter.annotation, FromFactory):
+                datasources[parameter.name] = self._resolve_datasource_from_factory(
+                    parameter.annotation
+                )
+                continue
 
-                    datasource = parameter.annotation(**datasource_kwargs)
-                    self._instantiated_datasources[parameter.annotation] = datasource
-                    datasources[parameter.name] = datasource
-                    continue
-                else:
-                    raise ValueError(
-                        f"No datasource definition for {parameter.annotation}"
+            if get_origin(parameter.annotation) is Annotated:
+                type_key, *args = get_args(parameter.annotation)
+                annotation_class = args[0]
+
+                if isinstance(annotation_class, FromFactory):
+                    datasources[parameter.name] = self._resolve_datasource_from_factory(
+                        annotation_class
                     )
+                    continue
+
+                raise ValueError(
+                    f"Unsupported annotation {parameter.annotation}. "
+                    f"When using Annotated, the second argument must be an instance of FromFactory. "
+                    f"Example: Annotated[YourDatasourceType, FromFactory(YourFactoryType, 'arg1', arg2=value)]"
+                )
+
+            if issubclass(parameter.annotation, Datasource):
+                datasources[parameter.name] = self._resolve_datasource(
+                    parameter.annotation
+                )
+                continue
 
         return datasources
 

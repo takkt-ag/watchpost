@@ -14,9 +14,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Annotated
+
 from outpost import Outpost, current_app
 from outpost.check import check
-from outpost.datasource import Datasource
+from outpost.datasource import Datasource, DatasourceFactory, FromFactory
 from outpost.environment import Environment
 from outpost.result import CheckResult, ok
 
@@ -25,15 +27,33 @@ class DummyDatasource(Datasource):
     pass
 
 
+class MockBoto3Client(Datasource):
+    def __init__(self, service_name: str, region_name: str):
+        self.service_name = service_name
+        self.region_name = region_name
+
+    def __repr__(self) -> str:
+        return f"<MockBoto3Client service_name={self.service_name!r} region_name={self.region_name!r}>"
+
+
+class Boto3(DatasourceFactory):
+    def new(self, service: str) -> Datasource:
+        return MockBoto3Client(service, "eu-central-1")
+
+
 @check(
     name="dummy",
     service_labels={"foo": "bar"},
     environments=[Environment("test")],
 )
-def dummy_check_function(dummy: DummyDatasource) -> CheckResult:
+def dummy_check_function(
+    dummy: DummyDatasource,
+    annotated: Annotated[MockBoto3Client, FromFactory(Boto3, "ecs")],
+) -> CheckResult:
     print("This is a running check.")
     print(f"Current app: {current_app}")
     print(f"Dummy: {dummy}")
+    print(f"Annotated: {annotated}")
     return ok("This is a check result.")
 
 
@@ -43,6 +63,7 @@ app = Outpost(
 )
 
 app.register_datasource(DummyDatasource)
+app.register_datasource_factory(Boto3)
 
 
 def main() -> None:

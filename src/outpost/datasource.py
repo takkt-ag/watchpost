@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Callable
+from typing import Any, Protocol
 
 
 class DatasourceUnavailable(Exception):
@@ -24,16 +26,25 @@ class DatasourceUnavailable(Exception):
 
 
 class Datasource(ABC):
-    initialize_on_startup: bool = True
+    pass
 
-    @classmethod
-    def available_datasources(cls) -> set[type[Datasource]]:
-        subclasses = set()
-        queue = [cls]
-        while queue:
-            class_ = queue.pop()
-            for subclass in class_.__subclasses__():
-                subclasses.add(subclass)
-                queue.append(subclass)
 
-        return subclasses
+class DatasourceFactory(Protocol):
+    new: Callable[..., Datasource]
+
+
+class FromFactory:
+    def __init__(
+        self,
+        factory: type[DatasourceFactory],
+        *args: Any,
+        **kwargs: Any,
+    ):
+        self.factory_type = factory
+        self.args = args
+        self.kwargs = kwargs
+        self.cache_key = (
+            self.factory_type,
+            hash(frozenset(self.args)),
+            hash(frozenset(self.kwargs.items())),
+        )
