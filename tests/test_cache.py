@@ -22,7 +22,15 @@ import pytest
 import redis
 from testcontainers.redis import RedisContainer
 
-from outpost.cache import Cache, CacheKey, DiskStorage, InMemoryStorage, RedisStorage
+from outpost.cache import (
+    Cache,
+    CacheEntry,
+    CacheKey,
+    ChainedStorage,
+    DiskStorage,
+    InMemoryStorage,
+    RedisStorage,
+)
 
 
 class TestDiskStorage:
@@ -388,6 +396,153 @@ class TestInMemoryStorage:
             @cache.memoize(key="something", key_generator=key_generator)
             def memoized_function(a):
                 return a
+
+
+class TestChainedStorage:
+    def test_constructor_requires_at_least_one_storage(self):
+        """Test that the constructor raises ValueError when no storages are provided."""
+        with pytest.raises(ValueError, match="At least one storage must be provided"):
+            ChainedStorage([])
+
+    def test_get_tries_storages_in_order(self):
+        """Test that get() tries each storage in order and returns the first hit."""
+        # Create two storage backends
+        storage1 = InMemoryStorage()
+        storage2 = InMemoryStorage()
+
+        # Create a chained storage with both backends
+        chained_storage = ChainedStorage([storage1, storage2])
+
+        # Create a cache key and entry
+        cache_key = CacheKey(key="test-key", package="test-package")
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            value="test-value",
+            added_at=datetime.now(tz=UTC),
+            ttl=None,
+        )
+
+        # Store the entry only in the second storage
+        storage2.store(cache_entry)
+
+        # The chained storage should find it
+        result = chained_storage.get(cache_key)
+        assert result is not None
+        assert result.value == "test-value"
+
+        # And it should have been propagated to the first storage
+        assert cache_key in storage1.cache
+
+    def test_propagate_to_earlier_storages(self):
+        """Test that entries found in later storages are propagated to earlier ones."""
+        # Create three storage backends
+        storage1 = InMemoryStorage()
+        storage2 = InMemoryStorage()
+        storage3 = InMemoryStorage()
+
+        # Create a chained storage with all three backends
+        chained_storage = ChainedStorage([storage1, storage2, storage3])
+
+        # Create a cache key and entry
+        cache_key = CacheKey(key="test-key", package="test-package")
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            value="test-value",
+            added_at=datetime.now(tz=UTC),
+            ttl=None,
+        )
+
+        # Store the entry only in the third storage
+        storage3.store(cache_entry)
+
+        # The entry should not be in the first two storages yet
+        assert cache_key not in storage1.cache
+        assert cache_key not in storage2.cache
+
+        # Get the entry from the chained storage
+        result = chained_storage.get(cache_key)
+        assert result is not None
+        assert result.value == "test-value"
+
+        # The entry should now be in all storages
+        assert cache_key in storage1.cache
+        assert cache_key in storage2.cache
+        assert cache_key in storage3.cache
+
+    def test_store_stores_in_all_storages(self):
+        """Test that store() stores the entry in all storage backends."""
+        # Create two storage backends
+        storage1 = InMemoryStorage()
+        storage2 = InMemoryStorage()
+
+        # Create a chained storage with both backends
+        chained_storage = ChainedStorage([storage1, storage2])
+
+        # Create a cache key and entry
+        cache_key = CacheKey(key="test-key", package="test-package")
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            value="test-value",
+            added_at=datetime.now(tz=UTC),
+            ttl=None,
+        )
+
+        # Store the entry in the chained storage
+        chained_storage.store(cache_entry)
+
+        # The entry should be in both storages
+        assert cache_key in storage1.cache
+        assert cache_key in storage2.cache
+        assert storage1.cache[cache_key].value == "test-value"
+        assert storage2.cache[cache_key].value == "test-value"
+
+    def test_get_returns_none_if_not_found(self):
+        """Test that get() returns None if the entry is not found in any storage."""
+        # Create two storage backends
+        storage1 = InMemoryStorage()
+        storage2 = InMemoryStorage()
+
+        # Create a chained storage with both backends
+        chained_storage = ChainedStorage([storage1, storage2])
+
+        # Create a cache key
+        cache_key = CacheKey(key="test-key", package="test-package")
+
+        # The entry should not be found
+        assert chained_storage.get(cache_key) is None
+
+    def test_expired_entries_are_handled_correctly(self):
+        """Test that expired entries are handled correctly by the chained storage."""
+        # Create two storage backends
+        storage1 = InMemoryStorage()
+        storage2 = InMemoryStorage()
+
+        # Create a chained storage with both backends
+        chained_storage = ChainedStorage([storage1, storage2])
+
+        # Create a cache key and an expired entry
+        cache_key = CacheKey(key="test-key", package="test-package")
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            value="test-value",
+            added_at=datetime.now(tz=UTC),
+            ttl=timedelta(seconds=-1),  # Expired
+        )
+
+        # Test 1: Normal get should return None for expired entries
+        # Store the entry in the second storage
+        storage2.store(cache_entry)
+        # The entry should not be found by default
+        assert chained_storage.get(cache_key) is None
+
+        # Test 2: get with return_expired=True should return the expired entry
+        # Store the entry again since the previous get removed it
+        storage2.store(cache_entry)
+        # Now it should be found with return_expired=True
+        result = chained_storage.get(cache_key, return_expired=True)
+        assert result is not None
+        assert result.value == "test-value"
+        assert result.is_expired() is True
 
 
 @pytest.fixture(scope="class")

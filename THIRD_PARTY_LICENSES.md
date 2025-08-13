@@ -53,6 +53,7 @@ Find a list of packages below
 |✔|sniffio|
 |✔|starlette|
 |✔|testcontainers|
+|✔|timelength|
 |✔|tomli|
 |✔|ty|
 |✔|typing-extensions|
@@ -332,6 +333,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: Sergey Pirogov
 - License: APACHE SOFTWARE LICENSE
+- Compatible: True
+
+### timelength-3.0.2
+
+- HomePage: https://pypi.org/project/timelength/
+- Author: Etorix
+- License: MIT LICENSE
 - Compatible: True
 
 ### tomli-2.2.1

@@ -25,7 +25,7 @@ from outpost.environment import Environment
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
 
-from .utils import decode_checkmk_output
+from .utils import BlockingCheckExecutor, decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 
@@ -43,6 +43,7 @@ def test_outpost_initialization():
     app = Outpost(
         checks=[mock_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Verify the Outpost object was initialized correctly
@@ -55,6 +56,7 @@ def test_app_context():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Before entering the context, current_app should raise an error
@@ -76,6 +78,7 @@ def test_app_context_exception_handling():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Test that the context is properly reset even if an exception occurs
@@ -95,6 +98,7 @@ def test_run_checks_once():
     """Test that the run_checks_once method runs all checks and outputs the results."""
     # Create a mock check that returns a known ExecutionResult
     mock_check = MagicMock(spec=Check)
+    mock_check.environments = [TEST_ENVIRONMENT]
     execution_result = ExecutionResult(
         piggyback_host="test-host",
         service_name="test-service",
@@ -109,6 +113,7 @@ def test_run_checks_once():
     app = Outpost(
         checks=[mock_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Mock sys.stdout.buffer.write to capture the output
@@ -145,6 +150,7 @@ def test_run_checks_once_with_multiple_checks():
     """Test that the run_checks_once method runs multiple checks."""
     # Create two mock checks
     mock_check1 = MagicMock(spec=Check)
+    mock_check1.environments = [TEST_ENVIRONMENT]
     execution_result1 = ExecutionResult(
         piggyback_host="test-host-1",
         service_name="test-service-1",
@@ -156,6 +162,7 @@ def test_run_checks_once_with_multiple_checks():
     mock_check1.run.return_value = [execution_result1]
 
     mock_check2 = MagicMock(spec=Check)
+    mock_check2.environments = [TEST_ENVIRONMENT]
     execution_result2 = ExecutionResult(
         piggyback_host="test-host-2",
         service_name="test-service-2",
@@ -170,6 +177,7 @@ def test_run_checks_once_with_multiple_checks():
     app = Outpost(
         checks=[mock_check1, mock_check2],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Mock sys.stdout.buffer.write to capture the output
@@ -227,12 +235,14 @@ def test_run_checks_once_with_real_check():
         service_name="test-service",
         service_labels={"env": "test"},
         environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
 
     # Initialize the Outpost object
     app = Outpost(
         checks=[check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     app.register_datasource(TestDatasource)
 

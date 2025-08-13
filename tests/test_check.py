@@ -22,6 +22,8 @@ from outpost.utils import InvocationInformation
 
 from .utils import decode_checkmk_output
 
+TEST_ENVIRONMENT = Environment("test_env")
+
 
 class TestDatasource(Datasource):
     pass
@@ -45,6 +47,7 @@ def test_check_initialization():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Verify the Check object was initialized correctly
@@ -71,6 +74,7 @@ def test_check_with_invocation_information():
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
         invocation_information=invocation_info,
+        cache_for=None,
     )
 
     assert check.invocation_information
@@ -91,6 +95,7 @@ def test_generate_hostname():
         service_name="test_service",
         service_labels={},
         environments=[],
+        cache_for=None,
     )
 
     env = Environment("test_env")
@@ -114,6 +119,7 @@ def test_run_with_ok_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -121,6 +127,7 @@ def test_run_with_ok_result():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -147,6 +154,7 @@ def test_run_with_critical_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -154,6 +162,7 @@ def test_run_with_critical_result():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -176,6 +185,7 @@ def test_run_with_warning_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -183,6 +193,7 @@ def test_run_with_warning_result():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -205,6 +216,7 @@ def test_run_with_unknown_result():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -212,6 +224,7 @@ def test_run_with_unknown_result():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -223,31 +236,53 @@ def test_run_with_unknown_result():
 def test_run_with_multiple_environments():
     """Test the run method with multiple environments."""
 
+    env1 = Environment("env1")
+    env2 = Environment("env2")
+    env3 = Environment("env3")
+
     # Create a check function
-    def check_func(test_datasource: TestDatasource):
+    def check_func(environment: Environment, test_datasource: TestDatasource):
         _ = test_datasource
-        return ok("Checked environment")
+        return ok(f"Checked environment {environment.name}")
 
     # Initialize the Check object with multiple environments
     check = Check(
         check_function=check_func,
         service_name="test_service",
         service_labels={"env": "test"},
-        environments=[Environment("env1"), Environment("env2"), Environment("env3")],
+        environments=[env1, env2, env3],
+        cache_for=None,
     )
 
-    # Run the check
-    results = check.run(
+    results1 = check.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=env1,
     )
+    assert len(results1) == 1
+    assert results1[0].environment_name == "env1"
+    assert results1[0].summary == "Checked environment env1"
 
-    # Verify the results
-    assert len(results) == 3
-    assert results[0].environment_name == "env1"
-    assert results[1].environment_name == "env2"
-    assert results[2].environment_name == "env3"
+    results2 = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+        environment=env2,
+    )
+    assert len(results2) == 1
+    assert results2[0].environment_name == "env2"
+    assert results2[0].summary == "Checked environment env2"
+
+    results3 = check.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+        environment=env3,
+    )
+    assert len(results3) == 1
+    assert results3[0].environment_name == "env3"
+    assert results3[0].summary == "Checked environment env3"
 
 
 def test_run_with_multiple_datasources():
@@ -268,6 +303,7 @@ def test_run_with_multiple_datasources():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -276,6 +312,7 @@ def test_run_with_multiple_datasources():
             "test_datasource": TestDatasource(),
             "another_datasource": AnotherTestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -298,6 +335,7 @@ def test_run_with_environment_parameter():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -305,6 +343,7 @@ def test_run_with_environment_parameter():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -331,12 +370,14 @@ def test_run_captures_stdout_stderr():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     results = check.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -367,6 +408,7 @@ def test_run_with_list_of_results():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -374,6 +416,7 @@ def test_run_with_list_of_results():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -402,6 +445,7 @@ def test_run_with_generator_of_results():
         service_name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
 
     # Run the check
@@ -409,6 +453,7 @@ def test_run_with_generator_of_results():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -431,6 +476,7 @@ def test_check_decorator_returns_check_instance():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -451,6 +497,7 @@ def test_decorated_function_can_be_called_directly():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -471,6 +518,7 @@ def test_decorated_function_run_method():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -481,6 +529,7 @@ def test_decorated_function_run_method():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -501,6 +550,7 @@ def test_decorated_function_with_different_result_types():
         name="ok_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def ok_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -511,6 +561,7 @@ def test_decorated_function_with_different_result_types():
         name="warn_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def warn_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -521,6 +572,7 @@ def test_decorated_function_with_different_result_types():
         name="crit_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def crit_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -531,6 +583,7 @@ def test_decorated_function_with_different_result_types():
         name="unknown_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def unknown_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -541,21 +594,25 @@ def test_decorated_function_with_different_result_types():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
     warn_results = warn_func.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
     crit_results = crit_func.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
     unknown_results = unknown_func.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the OK results
@@ -582,27 +639,49 @@ def test_decorated_function_with_different_result_types():
 def test_decorated_function_with_multiple_environments():
     """Test a decorated function with multiple environments."""
 
+    env1 = Environment("env1")
+    env2 = Environment("env2")
+    env3 = Environment("env3")
+
     @check(
         name="test_service",
         service_labels={"env": "test"},
-        environments=[Environment("env1"), Environment("env2"), Environment("env3")],
+        environments=[env1, env2, env3],
+        cache_for=None,
     )
-    def decorated_func(test_datasource: TestDatasource):
+    def decorated_func(environment: Environment, test_datasource: TestDatasource):
         _ = test_datasource
-        return ok("Checked environment")
+        return ok(f"Checked environment {environment.name}")
 
-    # Run the check
-    results = decorated_func.run(
+    results1 = decorated_func.run(
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=env1,
     )
+    assert len(results1) == 1
+    assert results1[0].environment_name == "env1"
+    assert results1[0].summary == "Checked environment env1"
 
-    # Verify the results
-    assert len(results) == 3
-    assert results[0].environment_name == "env1"
-    assert results[1].environment_name == "env2"
-    assert results[2].environment_name == "env3"
+    results2 = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+        environment=env2,
+    )
+    assert len(results2) == 1
+    assert results2[0].environment_name == "env2"
+    assert results2[0].summary == "Checked environment env2"
+
+    results3 = decorated_func.run(
+        datasources={
+            "test_datasource": TestDatasource(),
+        },
+        environment=env3,
+    )
+    assert len(results3) == 1
+    assert results3[0].environment_name == "env3"
+    assert results3[0].summary == "Checked environment env3"
 
 
 def test_decorated_function_with_multiple_datasources():
@@ -612,6 +691,7 @@ def test_decorated_function_with_multiple_datasources():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(
         test_datasource: TestDatasource,
@@ -627,6 +707,7 @@ def test_decorated_function_with_multiple_datasources():
             "test_datasource": TestDatasource(),
             "another_datasource": AnotherTestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -642,6 +723,7 @@ def test_decorated_function_with_environment_parameter():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(environment: Environment, test_datasource: TestDatasource):
         _ = test_datasource
@@ -652,6 +734,7 @@ def test_decorated_function_with_environment_parameter():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -667,6 +750,7 @@ def test_decorated_function_captures_stdout_stderr():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -681,6 +765,7 @@ def test_decorated_function_captures_stdout_stderr():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -700,6 +785,7 @@ def test_decorated_function_with_list_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -714,6 +800,7 @@ def test_decorated_function_with_list_of_results():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -733,6 +820,7 @@ def test_decorated_function_with_generator_of_results():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -745,6 +833,7 @@ def test_decorated_function_with_generator_of_results():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -764,6 +853,7 @@ def test_check_decorator_captures_invocation_information():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -785,7 +875,8 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
     @check(
         name="test_service",
         service_labels={"env": "test"},
-        environments=[Environment("test_env")],
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -796,6 +887,7 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -813,6 +905,7 @@ def test_check_decorator_invocation_information_in_checkmk_output():
         name="test_service",
         service_labels={"env": "test"},
         environments=[Environment("test_env")],
+        cache_for=None,
     )
     def decorated_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -823,6 +916,7 @@ def test_check_decorator_invocation_information_in_checkmk_output():
         datasources={
             "test_datasource": TestDatasource(),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Generate the CheckMK output

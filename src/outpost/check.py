@@ -17,12 +17,15 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import inspect
 import io
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, TypeVar
 
+from .cache import Cache, CacheEntry, Storage
 from .datasource import Datasource
 from .environment import Environment
 from .result import (
@@ -31,7 +34,11 @@ from .result import (
     OngoingCheckResult,
     normalize_check_function_result,
 )
-from .utils import InvocationInformation, get_invocation_information
+from .utils import (
+    InvocationInformation,
+    get_invocation_information,
+    normalize_to_timedelta,
+)
 
 CheckFunctionResult = (
     CheckResult
@@ -73,6 +80,7 @@ class Check:
     service_name: str
     service_labels: dict[str, Any]
     environments: list[Environment]
+    cache_for: timedelta | None
     invocation_information: InvocationInformation | None = None
 
     @property
@@ -89,43 +97,47 @@ class Check:
     def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
         return self.check_function(*args, **kwargs)
 
-    def run(self, datasources: dict[str, Datasource]) -> list[ExecutionResult]:
+    def run(
+        self,
+        *,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult]:
         kwargs: dict[str, Environment | Datasource] = {
             **datasources,
         }
 
         collected_results = []
-        for environment in self.environments:
-            if "environment" in self._check_function_signature.parameters:
-                kwargs["environment"] = environment
+        if "environment" in self._check_function_signature.parameters:
+            kwargs["environment"] = environment
 
-            stdout = io.StringIO()
-            stderr = io.StringIO()
-            with (
-                contextlib.redirect_stdout(stdout),
-                contextlib.redirect_stderr(stderr),
-            ):
-                initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
-            normalized_results = normalize_check_function_result(
-                initial_result,
-                stdout,
-                stderr,
-            )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
+            initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
+        normalized_results = normalize_check_function_result(
+            initial_result,
+            stdout,
+            stderr,
+        )
 
-            for result in normalized_results:
-                collected_results.append(
-                    ExecutionResult(
-                        piggyback_host=self.generate_hostname(environment),
-                        service_name=self.service_name,
-                        service_labels=self.service_labels,
-                        environment_name=environment.name,
-                        check_state=result.check_state,
-                        summary=result.summary,
-                        details=result.details,
-                        metrics=result.metrics,
-                        check_definition=self.invocation_information,
-                    )
+        for result in normalized_results:
+            collected_results.append(
+                ExecutionResult(
+                    piggyback_host=self.generate_hostname(environment),
+                    service_name=self.service_name,
+                    service_labels=self.service_labels,
+                    environment_name=environment.name,
+                    check_state=result.check_state,
+                    summary=result.summary,
+                    details=result.details,
+                    metrics=result.metrics,
+                    check_definition=self.invocation_information,
                 )
+            )
 
         return collected_results
 
@@ -138,6 +150,7 @@ def check(
     name: str,
     service_labels: dict[str, Any],
     environments: list[Environment],
+    cache_for: timedelta | str | None,
 ) -> Callable[[CheckFunction], Check]:
     check_definition = get_invocation_information()
 
@@ -147,7 +160,55 @@ def check(
             service_name=name,
             service_labels=service_labels,
             environments=environments,
+            cache_for=normalize_to_timedelta(cache_for),
             invocation_information=check_definition,
         )
 
     return decorator
+
+
+class CheckCache:
+    def __init__(self, storage: Storage):
+        self._cache = Cache(storage)
+
+    @staticmethod
+    def _hash_datasources(datasources: dict[str, Datasource]) -> str:
+        return hashlib.sha256(
+            str({k: repr(v) for k, v in sorted(datasources.items())}).encode()
+        ).hexdigest()
+
+    @staticmethod
+    def _generate_check_cache_key(
+        check: Check,
+        environment: Environment,
+    ) -> str:
+        return f"{check.name}:{environment.name}"
+
+    def get_check_results_cache_entry(
+        self,
+        check: Check,
+        environment: Environment,
+        return_expired: bool = False,
+    ) -> CacheEntry[list[ExecutionResult]] | None:
+        return self._cache.get(
+            self._generate_check_cache_key(check, environment),
+            return_expired=return_expired,
+        )
+
+    def store_check_results(
+        self,
+        check: Check,
+        environment: Environment,
+        results: list[ExecutionResult],
+    ) -> None:
+        """
+        Stores the results of a check execution for caching purposes.
+        """
+        if not check.cache_for:
+            return
+
+        self._cache.store(
+            self._generate_check_cache_key(check, environment),
+            results,
+            ttl=check.cache_for,
+        )

@@ -102,6 +102,66 @@ class Storage(ABC):
         """
 
 
+class ChainedStorage(Storage):
+    """
+    A storage implementation that chains multiple storage backends together.
+
+    On retrieval, it tries each storage in order until it finds a hit. On
+    storage, it stores the value in all storage backends.
+    """
+
+    def __init__(self, storages: list[Storage]):
+        """
+        Initialize a chained storage with multiple storage backends.
+
+        :param storages: A list of storage backends to chain together. The order
+        determines the lookup order during retrieval, with the first hit being
+        returned.
+        """
+        if not storages:
+            raise ValueError("At least one storage must be provided")
+        self.storages = storages
+
+    def get(
+        self,
+        cache_key: CacheKey,
+        return_expired: bool = False,
+    ) -> CacheEntry[T] | None:
+        for storage in self.storages:
+            cache_entry: CacheEntry[T] | None = storage.get(
+                cache_key,
+                return_expired=return_expired,
+            )
+            if cache_entry:
+                # Found in this storage, propagate to earlier storages
+                self._propagate_to_earlier_storages(cache_entry, storage)
+                return cache_entry
+        return None
+
+    def _propagate_to_earlier_storages(
+        self,
+        cache_entry: CacheEntry,
+        found_in_storage: Storage,
+    ) -> None:
+        """
+        Propagate a cache entry to all storages that come before the one where
+        it was found. This ensures that future lookups will find the entry in
+        the prioritized storages.
+        """
+        for storage in self.storages:
+            if storage is found_in_storage:
+                # Stop once we reach the storage where the entry was found
+                break
+            storage.store(cache_entry)
+
+    def store(
+        self,
+        entry: CacheEntry,
+    ) -> None:
+        for storage in self.storages:
+            storage.store(entry)
+
+
 class InMemoryStorage(Storage):
     def __init__(self) -> None:
         self.cache: dict[CacheKey, CacheEntry] = {}
