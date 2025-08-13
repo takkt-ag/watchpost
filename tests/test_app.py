@@ -25,7 +25,7 @@ from outpost.environment import Environment
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
 
-from .utils import decode_checkmk_output
+from .utils import BlockingCheckExecutor, decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 
@@ -43,6 +43,7 @@ def test_outpost_initialization():
     app = Outpost(
         checks=[mock_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Verify the Outpost object was initialized correctly
@@ -55,6 +56,7 @@ def test_app_context():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Before entering the context, current_app should raise an error
@@ -76,6 +78,7 @@ def test_app_context_exception_handling():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Test that the context is properly reset even if an exception occurs
@@ -110,6 +113,7 @@ def test_run_checks_once():
     app = Outpost(
         checks=[mock_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Mock sys.stdout.buffer.write to capture the output
@@ -173,6 +177,7 @@ def test_run_checks_once_with_multiple_checks():
     app = Outpost(
         checks=[mock_check1, mock_check2],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Mock sys.stdout.buffer.write to capture the output
@@ -237,6 +242,7 @@ def test_run_checks_once_with_real_check():
     app = Outpost(
         checks=[check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     app.register_datasource(TestDatasource)
 

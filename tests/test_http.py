@@ -26,7 +26,7 @@ from outpost.executor import CheckExecutor
 from outpost.http import routes
 from outpost.result import ok
 
-from .utils import decode_checkmk_output
+from .utils import BlockingCheckExecutor, decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 
@@ -35,6 +35,7 @@ def test_healthcheck():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     client = TestClient(app)
     response = client.get("/healthcheck")
@@ -48,6 +49,7 @@ def test_executor_statistics():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     mock_statistics = CheckExecutor.Statistics(
         total=10,
@@ -77,6 +79,7 @@ def test_executor_errored():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     mock_errored = {
         "check1": "Error message 1",
@@ -99,6 +102,7 @@ def test_root():
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     expected_output = [
         b"<<<check_mk>>>\n",
@@ -130,6 +134,7 @@ def test_root_with_real_check():
     app = Outpost(
         checks=[simple_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     client = TestClient(app)
 
@@ -190,6 +195,7 @@ def test_root_with_real_check_and_datasource():
     app = Outpost(
         checks=[simple_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
     app.register_datasource(TestDatasource)
     client = TestClient(app)

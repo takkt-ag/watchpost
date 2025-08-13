@@ -23,7 +23,7 @@ from outpost.check import Check, check
 from outpost.datasource import Datasource, DatasourceFactory, FromFactory
 from outpost.environment import Environment
 from outpost.result import CheckResult, ok
-from tests.utils import decode_checkmk_output
+from tests.utils import BlockingCheckExecutor, decode_checkmk_output
 
 # Define test environment
 TEST_ENVIRONMENT = Environment("test-env")
@@ -60,6 +60,7 @@ def test_register_datasource_factory() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register a factory
@@ -76,6 +77,7 @@ def test_resolve_datasource_from_factory() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register a factory
@@ -98,6 +100,7 @@ def test_resolve_datasource_from_factory_caching() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register a factory
@@ -120,6 +123,7 @@ def test_resolve_datasource_from_factory_with_different_args() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register a factory
@@ -151,6 +155,7 @@ def test_resolve_datasource_from_factory_with_kwargs() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register a factory
@@ -175,6 +180,7 @@ def test_factory_not_registered() -> None:
     app = Outpost(
         checks=[],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Create a FromFactory instance
@@ -206,6 +212,7 @@ def test_check_with_factory_datasource() -> None:
     app = Outpost(
         checks=[test_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register the factory
@@ -252,6 +259,7 @@ def test_check_with_multiple_factory_datasources() -> None:
     app = Outpost(
         checks=[test_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register the factory
@@ -300,6 +308,7 @@ def test_check_with_mixed_datasources() -> None:
     app = Outpost(
         checks=[test_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register the datasource and factory
@@ -349,6 +358,7 @@ def test_outpost_resolve_datasources_with_factory() -> None:
     app = Outpost(
         checks=[check_obj],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register the factory
@@ -384,6 +394,7 @@ def test_outpost_run_checks_with_factory() -> None:
     app = Outpost(
         checks=[test_check],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Register the factory
@@ -397,7 +408,32 @@ def test_outpost_run_checks_with_factory() -> None:
     assert isinstance(output[0], bytes)
 
     decoded_output = decode_checkmk_output(b"".join(output))
-    assert len(decoded_output) == 2
+    for item in decoded_output:
+        item.pop("check_definition", None)
+
+    assert sorted(decoded_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "check_state": "OK",
+                "details": None,
+                "environment": "test-env",
+                "metrics": [],
+                "service_labels": {"env": "test"},
+                "service_name": "test-service",
+                "summary": "Datasource config: factory-created-test-service",
+            },
+            {
+                "check_state": "OK",
+                "details": "Check functions:\n- tests.test_datasource_factory.test_outpost_run_checks_with_factory.<locals>.test_check",
+                "environment": "test-env",
+                "metrics": [],
+                "service_labels": {},
+                "service_name": "Run checks",
+                "summary": "Ran 1 checks",
+            },
+        ],
+        key=lambda result: result["service_name"],
+    )
 
 
 def test_fromfactory_cache_key() -> None:
@@ -450,6 +486,7 @@ def test_annotated_with_non_fromfactory() -> None:
     app = Outpost(
         checks=[check_obj],
         outpost_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
     )
 
     # Attempt to resolve the datasources, which should raise a ValueError

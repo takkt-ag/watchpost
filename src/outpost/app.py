@@ -45,14 +45,16 @@ class Outpost:
         outpost_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
+        executor: CheckExecutor[list[ExecutionResult]] | None = None,
         check_cache_storage: Storage | None = None,
     ):
         self.checks = checks
         self.outpost_environment = outpost_environment
         self.version = version
-        self.executor: CheckExecutor[list[ExecutionResult]] = CheckExecutor(
-            max_workers=max_workers,
-        )
+        if executor:
+            self.executor = executor
+        else:
+            self.executor = CheckExecutor(max_workers=max_workers)
 
         self._check_cache = CheckCache(
             storage=check_cache_storage or InMemoryStorage(),
