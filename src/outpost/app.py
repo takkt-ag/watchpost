@@ -25,7 +25,8 @@ from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
 
 from . import http
-from .check import Check
+from .cache import InMemoryStorage, Storage
+from .check import Check, CheckCache
 from .datasource import Datasource, DatasourceFactory, FromFactory
 from .environment import Environment
 from .executor import CheckExecutor
@@ -44,11 +45,18 @@ class Outpost:
         outpost_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
+        check_cache_storage: Storage | None = None,
     ):
         self.checks = checks
         self.outpost_environment = outpost_environment
         self.version = version
-        self.executor = CheckExecutor(max_workers=max_workers)
+        self.executor: CheckExecutor[list[ExecutionResult]] = CheckExecutor(
+            max_workers=max_workers,
+        )
+
+        self._check_cache = CheckCache(
+            storage=check_cache_storage or InMemoryStorage(),
+        )
 
         self._datasource_definitions: dict[type[Datasource], dict[str, Any]] = {}
         self._datasource_factories: dict[type, DatasourceFactory] = {}
@@ -185,9 +193,56 @@ class Outpost:
 
         for check in self.checks:
             datasources = self._resolve_datasources(check)
-            execution_results = check.run(datasources=datasources)
-            for execution_result in execution_results:
-                yield from execution_result.generate_checkmk_output()
+            for environment in check.environments:
+                check_results_cache_entry = (
+                    self._check_cache.get_check_results_cache_entry(
+                        check,
+                        environment,
+                        return_expired=True,
+                    )
+                )
+
+                executor_key = (check.name, environment.name)
+                should_update_cache = (
+                    check.cache_for is None
+                    or check_results_cache_entry is None
+                    or check_results_cache_entry.is_expired()
+                )
+                can_reuse_results = (
+                    check_results_cache_entry is not None
+                    and not check_results_cache_entry.is_expired()
+                )
+
+                if should_update_cache or not can_reuse_results:
+                    self.executor.submit(
+                        key=executor_key,
+                        func=check.run,
+                        resubmit=check.cache_for is None,
+                        environment=environment,
+                        datasources=datasources,
+                    )
+
+                if can_reuse_results:
+                    execution_results = check_results_cache_entry.value  # type: ignore[union-attr]
+                else:
+                    maybe_execution_results = self.executor.result(key=executor_key)
+                    if not maybe_execution_results:
+                        execution_results = [
+                            ExecutionResult(
+                                piggyback_host="NOTIMPLENTEDYET",
+                                service_name=check.service_name,
+                                service_labels=check.service_labels,
+                                environment_name=environment.name,
+                                check_state=CheckState.UNKNOWN,
+                                summary="Check is running asynchronously and first results are not available yet",
+                                check_definition=check.invocation_information,
+                            )
+                        ]
+                    else:
+                        execution_results = maybe_execution_results
+
+                for execution_result in execution_results:
+                    yield from execution_result.generate_checkmk_output()
 
         yield from self._generate_synthetic_result_outputs()
 
@@ -195,7 +250,10 @@ class Outpost:
         with self.app_context():
             for check in self.checks:
                 datasources = self._resolve_datasources(check)
-                execution_results = check.run(datasources=datasources)
-                for execution_result in execution_results:
-                    for chunk in execution_result.generate_checkmk_output():
-                        sys.stdout.buffer.write(chunk)
+                for environment in check.environments:
+                    execution_results = check.run(
+                        datasources=datasources, environment=environment
+                    )
+                    for execution_result in execution_results:
+                        for chunk in execution_result.generate_checkmk_output():
+                            sys.stdout.buffer.write(chunk)

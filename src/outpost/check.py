@@ -97,43 +97,47 @@ class Check:
     def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
         return self.check_function(*args, **kwargs)
 
-    def run(self, datasources: dict[str, Datasource]) -> list[ExecutionResult]:
+    def run(
+        self,
+        *,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult]:
         kwargs: dict[str, Environment | Datasource] = {
             **datasources,
         }
 
         collected_results = []
-        for environment in self.environments:
-            if "environment" in self._check_function_signature.parameters:
-                kwargs["environment"] = environment
+        if "environment" in self._check_function_signature.parameters:
+            kwargs["environment"] = environment
 
-            stdout = io.StringIO()
-            stderr = io.StringIO()
-            with (
-                contextlib.redirect_stdout(stdout),
-                contextlib.redirect_stderr(stderr),
-            ):
-                initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
-            normalized_results = normalize_check_function_result(
-                initial_result,
-                stdout,
-                stderr,
-            )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
+            initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
+        normalized_results = normalize_check_function_result(
+            initial_result,
+            stdout,
+            stderr,
+        )
 
-            for result in normalized_results:
-                collected_results.append(
-                    ExecutionResult(
-                        piggyback_host=self.generate_hostname(environment),
-                        service_name=self.service_name,
-                        service_labels=self.service_labels,
-                        environment_name=environment.name,
-                        check_state=result.check_state,
-                        summary=result.summary,
-                        details=result.details,
-                        metrics=result.metrics,
-                        check_definition=self.invocation_information,
-                    )
+        for result in normalized_results:
+            collected_results.append(
+                ExecutionResult(
+                    piggyback_host=self.generate_hostname(environment),
+                    service_name=self.service_name,
+                    service_labels=self.service_labels,
+                    environment_name=environment.name,
+                    check_state=result.check_state,
+                    summary=result.summary,
+                    details=result.details,
+                    metrics=result.metrics,
+                    check_definition=self.invocation_information,
                 )
+            )
 
         return collected_results
 

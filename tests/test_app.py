@@ -95,6 +95,7 @@ def test_run_checks_once():
     """Test that the run_checks_once method runs all checks and outputs the results."""
     # Create a mock check that returns a known ExecutionResult
     mock_check = MagicMock(spec=Check)
+    mock_check.environments = [TEST_ENVIRONMENT]
     execution_result = ExecutionResult(
         piggyback_host="test-host",
         service_name="test-service",
@@ -145,6 +146,7 @@ def test_run_checks_once_with_multiple_checks():
     """Test that the run_checks_once method runs multiple checks."""
     # Create two mock checks
     mock_check1 = MagicMock(spec=Check)
+    mock_check1.environments = [TEST_ENVIRONMENT]
     execution_result1 = ExecutionResult(
         piggyback_host="test-host-1",
         service_name="test-service-1",
@@ -156,6 +158,7 @@ def test_run_checks_once_with_multiple_checks():
     mock_check1.run.return_value = [execution_result1]
 
     mock_check2 = MagicMock(spec=Check)
+    mock_check2.environments = [TEST_ENVIRONMENT]
     execution_result2 = ExecutionResult(
         piggyback_host="test-host-2",
         service_name="test-service-2",

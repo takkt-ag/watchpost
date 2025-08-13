@@ -21,12 +21,11 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Hashable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
 
 logger = logging.getLogger(f"{__package__}.{__name__}")
 
 
-class CheckExecutor:
+class CheckExecutor[T]:
     @dataclass
     class Statistics:
         total: int
@@ -43,16 +42,16 @@ class CheckExecutor:
         self.futures: dict[Hashable, deque[Future]] = defaultdict(deque)
         self.finished_futures: set[Future] = set()
         self.keys: dict[Future, Hashable] = {}
-        self.results: dict[Future, Any] = {}
+        self.results: dict[Future, T] = {}
         self.errors: dict[Future, Exception] = {}
 
     def shutdown(self, wait: bool = False) -> None:
         self.executor.shutdown(wait=wait)
 
-    def submit[**P, R](  # type: ignore[valid-type]
+    def submit[**P](  # type: ignore[valid-type]
         self,
         key: Hashable,
-        func: Callable[P, R],
+        func: Callable[P, T],
         *args: P.args,
         resubmit: bool = False,
         **kwargs: P.kwargs,
@@ -80,7 +79,7 @@ class CheckExecutor:
         finally:
             self.finished_futures.add(future)
 
-    def result(self, key: Hashable) -> Any:
+    def result(self, key: Hashable) -> T | None:
         try:
             future = self.futures[key].popleft()
         except IndexError as e:

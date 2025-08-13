@@ -23,6 +23,7 @@ from outpost.check import Check, check
 from outpost.datasource import Datasource, DatasourceFactory, FromFactory
 from outpost.environment import Environment
 from outpost.result import CheckResult, ok
+from tests.utils import decode_checkmk_output
 
 # Define test environment
 TEST_ENVIRONMENT = Environment("test-env")
@@ -217,6 +218,7 @@ def test_check_with_factory_datasource() -> None:
                 FromFactory(TestFactory, "test-service")
             ),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -265,6 +267,7 @@ def test_check_with_multiple_factory_datasources() -> None:
                 FromFactory(TestFactory, "service2")
             ),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -311,6 +314,7 @@ def test_check_with_mixed_datasources() -> None:
                 FromFactory(TestFactory, "test-service")
             ),
         },
+        environment=TEST_ENVIRONMENT,
     )
 
     # Verify the results
@@ -391,6 +395,9 @@ def test_outpost_run_checks_with_factory() -> None:
     # Verify that output was generated
     assert len(output) > 0
     assert isinstance(output[0], bytes)
+
+    decoded_output = decode_checkmk_output(b"".join(output))
+    assert len(decoded_output) == 2
 
 
 def test_fromfactory_cache_key() -> None:
