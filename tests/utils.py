@@ -31,7 +31,7 @@ class BlockingCheckExecutor[T](CheckExecutor[T]):
         super().__init__(max_workers)
 
     def result(self, key: Hashable) -> T | None:
-        wait(self.futures[key], return_when="ALL_COMPLETED")
+        wait(self._state[key].active_futures, return_when="ALL_COMPLETED")
         return super().result(key)
 
 

@@ -17,16 +17,22 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict, deque
+from collections import deque
 from collections.abc import Callable, Hashable
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from types import TracebackType
 
 logger = logging.getLogger(f"{__package__}.{__name__}")
+
+
+@dataclass
+class _KeyState[T]:
+    active_futures: list[Future[T]] = field(default_factory=list)
+    finished_futures: deque[Future[T]] = field(default_factory=deque)
 
 
 class CheckExecutor[T]:
@@ -43,11 +49,7 @@ class CheckExecutor[T]:
         max_workers: int | None = None,
     ):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
-        self.futures: dict[Hashable, list[Future]] = defaultdict(list)
-        self.finished_futures: dict[Hashable, deque[Future]] = defaultdict(deque)
-        self.keys: dict[Future, Hashable] = {}
-        self.results: dict[Future, T] = {}
-        self.errors: dict[Future, Exception] = {}
+        self._state: dict[Hashable, _KeyState[T]] = {}
 
     def __enter__(self) -> CheckExecutor[T]:
         return self
@@ -71,62 +73,65 @@ class CheckExecutor[T]:
         resubmit: bool = False,
         **kwargs: P.kwargs,
     ) -> Future:
-        if not resubmit and (futures := self.futures[key]):
-            # One or more jobs for this key are already running. We don't want to start
-            # another one, so we return the first existing future.
-            return futures[0]
+        key_state = self._state.setdefault(key, _KeyState())
+
+        if not resubmit and key_state.active_futures:
+            # One or more jobs for this key are already running. We don't want
+            # to start another one, so we return the first existing future.
+            return key_state.active_futures[0]
 
         logger.debug("Submitting future for key %s", key)
         future = self.executor.submit(func, *args, **kwargs)
-        self.futures[key].append(future)
-        self.keys[future] = key
-        future.add_done_callback(self._done_callback)
+        key_state.active_futures.append(future)
+        future.add_done_callback(lambda future: self._done_callback(key, future))
         return future
 
-    def _done_callback(self, future: Future) -> None:
-        key = self.keys.get(future, "<unknown future>")
-        try:
-            self.results[future] = future.result()
+    def _done_callback(self, key: Hashable, future: Future[T]) -> None:
+        if key_state := self._state.get(key):
             logger.debug("Future %s completed successfully", key)
-        except Exception as e:
-            self.errors[future] = e
-            logger.debug("Future %s failed: %s", key, e)
-        finally:
-            self.finished_futures[key].append(future)
+            key_state.finished_futures.append(future)
+        else:
+            logger.warning("Future %s completed after state cleanup", key)
 
     def result(self, key: Hashable) -> T | None:
-        try:
-            finished_future = self.finished_futures[key].popleft()
-        except IndexError:
-            if not self.futures[key]:
+        key_state = self._state.get(key)
+
+        if not key_state or not key_state.finished_futures:
+            if not key_state or not key_state.active_futures:
                 # No future for the key has been submitted at all.
                 raise KeyError(key) from None
 
             # No future for the key has finished yet, returning no result.
             return None
 
+        finished_future = key_state.finished_futures.popleft()
         try:
-            return self.results[finished_future]
-        except KeyError:
-            raise self.errors[finished_future] from None
-        finally:
-            if finished_future in self.keys:
-                del self.keys[finished_future]
-            if finished_future in self.results:
-                del self.results[finished_future]
-            if finished_future in self.errors:
-                del self.errors[finished_future]
-            try:
-                self.futures[key].remove(finished_future)
-            except ValueError:
-                pass
+            key_state.active_futures.remove(finished_future)
+        except ValueError:
+            pass
+
+        if not key_state.active_futures:
+            assert len(key_state.finished_futures) == 0
+            del self._state[key]
+
+        return finished_future.result()
 
     def statistics(self) -> CheckExecutor.Statistics:
-        total = sum(len(futures) for futures in self.futures.values())
-        completed = len(self.results)
-        errored = len(self.errors)
-        running = total - completed - errored
+        total = 0
+        completed = 0
+        errored = 0
+
+        for key_state in self._state.values():
+            total += len(key_state.active_futures)
+            for finished_future in key_state.finished_futures:
+                assert finished_future.done()
+                if finished_future.exception():
+                    errored += 1
+                else:
+                    completed += 1
+
         awaiting_pickup = completed + errored
+        running = total - awaiting_pickup
 
         return CheckExecutor.Statistics(
             total=total,
@@ -137,12 +142,10 @@ class CheckExecutor[T]:
         )
 
     def errored(self) -> dict[str, str]:
-        result = {}
-        for future, exception in self.errors.items():
-            try:
-                key = str(self.keys[future])
-            except KeyError:
-                key = "<unknown future>"
-            result[key] = str(exception)
+        errors = {}
+        for key, key_state in self._state.items():
+            for future in key_state.finished_futures:
+                if (exception := future.exception()) is not None:
+                    errors[str(key)] = str(exception)
 
-        return result
+        return errors

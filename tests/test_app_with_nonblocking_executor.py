@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import wait
+
 import pytest
 
 from outpost.app import Outpost
@@ -126,9 +128,10 @@ def test_run_checks_returns_final_result_after_event_is_set():
         # Signal the check can complete and wait for the first submitted future to finish
         event.set()
         key = (my_check.name, env.name)
-        # Wait for the first future to complete deterministically
-        if executor.futures.get(key):
-            executor.futures[key][0].result(timeout=5)
+        key_state = executor._state.get(key)
+        assert key_state, "future should be present for failing check"
+        assert key_state.active_futures, "future should be present for failing check"
+        wait(executor._state[key].active_futures, return_when="ALL_COMPLETED")
 
         # Act 2: Second run -> expect OK from finished result
         output2 = _collect_output(app)
@@ -181,9 +184,10 @@ def test_executor_errored_integration_nonblocking():
         # Let the check complete with an error and wait for its future
         key = (failing_check.name, env.name)
         event.set()
-        assert executor.futures.get(key), "future should be present for failing check"
-        with pytest.raises(ValueError, match="boom"):
-            executor.futures[key][0].result(timeout=5)
+        key_state = executor._state.get(key)
+        assert key_state, "future should be present for failing check"
+        assert key_state.active_futures, "future should be present for failing check"
+        wait(executor._state[key].active_futures, return_when="ALL_COMPLETED")
 
         # Before pickup: errored() should report the error with a key string
         errs = executor.errored()
