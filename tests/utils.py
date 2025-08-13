@@ -17,8 +17,10 @@
 import base64
 import json
 import re
-from collections.abc import Hashable
+from collections.abc import Generator, Hashable
 from concurrent.futures import wait
+from contextlib import contextmanager
+from threading import Event
 from typing import Any
 
 from outpost.executor import CheckExecutor
@@ -72,3 +74,12 @@ def decode_checkmk_output(output: str | bytes) -> list[dict[str, Any]]:
         raise ValueError("No base64 encoded data found in Checkmk output")
 
     return results
+
+
+@contextmanager
+def with_event() -> Generator[Event]:
+    event = Event()
+    try:
+        yield event
+    finally:
+        event.set()

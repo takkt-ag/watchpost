@@ -21,6 +21,10 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Hashable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 logger = logging.getLogger(f"{__package__}.{__name__}")
 
@@ -39,11 +43,22 @@ class CheckExecutor[T]:
         max_workers: int | None = None,
     ):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
-        self.futures: dict[Hashable, deque[Future]] = defaultdict(deque)
-        self.finished_futures: set[Future] = set()
+        self.futures: dict[Hashable, list[Future]] = defaultdict(list)
+        self.finished_futures: dict[Hashable, deque[Future]] = defaultdict(deque)
         self.keys: dict[Future, Hashable] = {}
         self.results: dict[Future, T] = {}
         self.errors: dict[Future, Exception] = {}
+
+    def __enter__(self) -> CheckExecutor[T]:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.shutdown(wait=True)
 
     def shutdown(self, wait: bool = False) -> None:
         self.executor.shutdown(wait=wait)
@@ -77,39 +92,34 @@ class CheckExecutor[T]:
             self.errors[future] = e
             logger.debug("Future %s failed: %s", key, e)
         finally:
-            self.finished_futures.add(future)
+            self.finished_futures[key].append(future)
 
     def result(self, key: Hashable) -> T | None:
         try:
-            future = self.futures[key].popleft()
-        except IndexError as e:
-            raise KeyError(key) from e
+            finished_future = self.finished_futures[key].popleft()
+        except IndexError:
+            if not self.futures[key]:
+                # No future for the key has been submitted at all.
+                raise KeyError(key) from None
 
-        # NOTE: we are not using `future.done()` here, because there is some
-        #       miniscule amount of time between when the future is done and
-        #       when `self._done_callback` has actually populated
-        #       `self.results` or `self.errors`. If we check for `done` here
-        #       right in that little time window, we might not get either the
-        #       result or the error.
-        #       Instead, `self._done_callback` will let us know once the
-        #       future's result/error is _actually_ ready to consume through
-        #       `self.finished_futures`.
-        if future not in self.finished_futures:
-            self.futures[key].appendleft(future)
+            # No future for the key has finished yet, returning no result.
             return None
-        self.finished_futures.remove(future)
 
         try:
-            return self.results[future]
+            return self.results[finished_future]
         except KeyError:
-            raise self.errors[future] from None
+            raise self.errors[finished_future] from None
         finally:
-            if future in self.keys:
-                del self.keys[future]
-            if future in self.results:
-                del self.results[future]
-            if future in self.errors:
-                del self.errors[future]
+            if finished_future in self.keys:
+                del self.keys[finished_future]
+            if finished_future in self.results:
+                del self.results[finished_future]
+            if finished_future in self.errors:
+                del self.errors[finished_future]
+            try:
+                self.futures[key].remove(finished_future)
+            except ValueError:
+                pass
 
     def statistics(self) -> CheckExecutor.Statistics:
         total = sum(len(futures) for futures in self.futures.values())

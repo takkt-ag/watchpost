@@ -14,12 +14,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 from dataclasses import asdict
+from threading import Event
 
 import pytest
 
 from outpost.executor import CheckExecutor
+
+from .utils import with_event
 
 
 def job(*args, **kwargs):
@@ -29,10 +31,9 @@ def job(*args, **kwargs):
     }
 
 
-def slow_job(delay: float, *args, **kwargs):
-    time.sleep(delay)
+def waiting_job(*args, event: Event, **kwargs):
+    event.wait()
     return {
-        "delay": delay,
         "args": args,
         "kwargs": kwargs,
     }
@@ -114,10 +115,11 @@ def test_throwing_job():
     }
 
 
-def test_slower_job():
+def test_waiting_job():
     executor = CheckExecutor(max_workers=1)
 
-    future = executor.submit("key", slow_job, delay=0.1)
+    event = Event()
+    future = executor.submit("key", waiting_job, event=event)
     assert future.done() is False
     assert asdict(executor.statistics()) == {
         "total": 1,
@@ -128,6 +130,7 @@ def test_slower_job():
     }
     assert executor.result("key") is None
 
+    event.set()
     future.result()  # Wait for the job to complete
     assert asdict(executor.statistics()) == {
         "total": 1,
@@ -138,7 +141,6 @@ def test_slower_job():
     }
 
     assert executor.result("key") == {
-        "delay": 0.1,
         "args": (),
         "kwargs": {},
     }
@@ -219,47 +221,104 @@ def test_resubmit_enabled():
     }
 
 
-def test_resubmit_order_retained():
+def test_resubmit_results():
+    executor = CheckExecutor(max_workers=2)
+
+    with (
+        with_event() as event1,
+        with_event() as event2,
+    ):
+        assert event1 is not event2
+
+        future1 = executor.submit("key", waiting_job, "future1", event=event1)
+        future2 = executor.submit(
+            "key", waiting_job, "future2", event=event2, resubmit=True
+        )
+        assert future1 is not future2
+
+        # With no futures finished, there should be no result yet.
+        assert executor.result("key") is None
+        assert asdict(executor.statistics()) == {
+            "total": 2,
+            "completed": 0,
+            "errored": 0,
+            "running": 2,
+            "awaiting_pickup": 0,
+        }
+
+        # Finishing future2 (which was submitted later) should return the results of
+        # that future
+        event2.set()
+        future2.result()
+        assert future2.done() is True
+        assert asdict(executor.statistics()) == {
+            "total": 2,
+            "completed": 1,
+            "errored": 0,
+            "running": 1,
+            "awaiting_pickup": 1,
+        }
+        assert executor.result("key") == {
+            "args": ("future2",),
+            "kwargs": {},
+        }
+        assert asdict(executor.statistics()) == {
+            "total": 1,
+            "completed": 0,
+            "errored": 0,
+            "running": 1,
+            "awaiting_pickup": 0,
+        }
+
+        # Finishing future1 (which was submitted earlier) should now return the
+        # results of that future
+        event1.set()
+        future1.result()
+        assert future1.done() is True
+        assert asdict(executor.statistics()) == {
+            "total": 1,
+            "completed": 1,
+            "errored": 0,
+            "running": 0,
+            "awaiting_pickup": 1,
+        }
+        assert executor.result("key") == {
+            "args": ("future1",),
+            "kwargs": {},
+        }
+        assert asdict(executor.statistics()) == {
+            "total": 0,
+            "completed": 0,
+            "errored": 0,
+            "running": 0,
+            "awaiting_pickup": 0,
+        }
+
+
+def test_errored_initially_empty():
+    executor = CheckExecutor(max_workers=1)
+    assert executor.errored() == {}
+
+
+def _raise_value_error():
+    raise ValueError("boom")
+
+
+def test_errored_reports_and_clears_after_pickup():
     executor = CheckExecutor(max_workers=1)
 
-    future1 = executor.submit("key", slow_job, delay=0.2)
-    future2 = executor.submit("key", slow_job, delay=0.1, resubmit=True)
+    future = executor.submit("key-err", _raise_value_error)
 
-    assert future1 is not future2
-    # Wait for the jobs to complete
-    future1.result()
-    future2.result()
+    # Wait for the job to complete with an error
+    with pytest.raises(ValueError, match="boom"):
+        future.result()
 
-    assert future1.done() is True
-    assert asdict(executor.statistics()) == {
-        "total": 2,
-        "completed": 2,
-        "errored": 0,
-        "running": 0,
-        "awaiting_pickup": 2,
-    }
+    # Before picking up the result, errored() should report the failure
+    errs = executor.errored()
+    assert errs == {"key-err": "boom"}
 
-    assert executor.result("key") == {
-        "delay": 0.2,
-        "args": (),
-        "kwargs": {},
-    }
-    assert asdict(executor.statistics()) == {
-        "total": 1,
-        "completed": 1,
-        "errored": 0,
-        "running": 0,
-        "awaiting_pickup": 1,
-    }
-    assert executor.result("key") == {
-        "delay": 0.1,
-        "args": (),
-        "kwargs": {},
-    }
-    assert asdict(executor.statistics()) == {
-        "total": 0,
-        "completed": 0,
-        "errored": 0,
-        "running": 0,
-        "awaiting_pickup": 0,
-    }
+    # Picking up the result should raise and clear errored tracking
+    with pytest.raises(ValueError, match="boom"):
+        executor.result("key-err")
+
+    assert executor.errored() == {}
