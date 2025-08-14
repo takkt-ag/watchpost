@@ -42,7 +42,7 @@ def test_outpost_initialization():
     # Initialize the Outpost object
     app = Outpost(
         checks=[mock_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -55,7 +55,7 @@ def test_app_context():
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -77,7 +77,7 @@ def test_app_context_exception_handling():
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -112,7 +112,7 @@ def test_run_checks_once():
     # Initialize the Outpost object
     app = Outpost(
         checks=[mock_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -176,7 +176,7 @@ def test_run_checks_once_with_multiple_checks():
     # Initialize the Outpost object with both checks
     app = Outpost(
         checks=[mock_check1, mock_check2],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -241,7 +241,7 @@ def test_run_checks_once_with_real_check():
     # Initialize the Outpost object
     app = Outpost(
         checks=[check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     app.register_datasource(TestDatasource)

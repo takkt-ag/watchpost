@@ -34,6 +34,7 @@ from .result import (
     OngoingCheckResult,
     normalize_check_function_result,
 )
+from .scheduling_strategy import SchedulingStrategy
 from .utils import (
     InvocationInformation,
     get_invocation_information,
@@ -74,7 +75,7 @@ CheckFunction = (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Check:
     check_function: CheckFunction
     service_name: str
@@ -82,6 +83,19 @@ class Check:
     environments: list[Environment]
     cache_for: timedelta | None
     invocation_information: InvocationInformation | None = None
+    scheduling_strategies: list[SchedulingStrategy] | None = None
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.check_function,
+                self.service_name,
+                tuple(self.service_labels.items()),
+                self.cache_for,
+                self.invocation_information,
+                self.scheduling_strategies,
+            )
+        )
 
     @property
     def name(self) -> str:
@@ -89,10 +103,14 @@ class Check:
 
     @property
     def signature(self) -> inspect.Signature:
-        return self._check_function_signature
+        return self._check_function_signature  # type: ignore[attr-defined]
 
     def __post_init__(self) -> None:
-        self._check_function_signature = inspect.signature(self.check_function)
+        object.__setattr__(
+            self,
+            "_check_function_signature",
+            inspect.signature(self.check_function),
+        )
 
     def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
         return self.check_function(*args, **kwargs)
@@ -108,7 +126,7 @@ class Check:
         }
 
         collected_results = []
-        if "environment" in self._check_function_signature.parameters:
+        if "environment" in self._check_function_signature.parameters:  # type: ignore[attr-defined]
             kwargs["environment"] = environment
 
         stdout = io.StringIO()

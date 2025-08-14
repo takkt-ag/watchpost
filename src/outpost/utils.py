@@ -29,6 +29,14 @@ class InvocationInformation:
     relative_path: str
     line_number: int
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.relative_path,
+                self.line_number,
+            )
+        )
+
 
 def get_invocation_information() -> InvocationInformation | None:
     # Get the frame of the function that called the function that called this

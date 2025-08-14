@@ -18,3 +18,6 @@
 class Environment:
     def __init__(self, name: str):
         self.name = name
+
+    def __hash__(self) -> int:
+        return hash(self.name)

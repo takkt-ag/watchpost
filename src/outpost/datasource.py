@@ -18,7 +18,10 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Callable
+from types import EllipsisType
 from typing import Any, Protocol
+
+from .scheduling_strategy import SchedulingStrategy
 
 
 class DatasourceUnavailable(Exception):
@@ -26,7 +29,7 @@ class DatasourceUnavailable(Exception):
 
 
 class Datasource(ABC):
-    pass
+    scheduling_strategies: tuple[SchedulingStrategy, ...] | EllipsisType | None = ...
 
 
 class DatasourceFactory(Protocol):

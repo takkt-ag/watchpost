@@ -24,7 +24,7 @@ from outpost.result import CheckResult, ok
 
 
 class DummyDatasource(Datasource):
-    pass
+    scheduling_strategies = ()
 
 
 class MockBoto3Client(Datasource):
@@ -60,7 +60,7 @@ def dummy_check_function(
 
 app = Outpost(
     checks=[dummy_check_function],
-    outpost_environment=Environment("test"),
+    execution_environment=Environment("test"),
 )
 
 app.register_datasource(DummyDatasource)

@@ -54,7 +54,7 @@ def test_run_checks_returns_placeholder_until_result_is_ready():
 
         app = Outpost(
             checks=[my_check],
-            outpost_environment=outpost_env,
+            execution_environment=outpost_env,
             executor=executor,
             version="test",
         )
@@ -111,7 +111,7 @@ def test_run_checks_returns_final_result_after_event_is_set():
 
         app = Outpost(
             checks=[my_check],
-            outpost_environment=outpost_env,
+            execution_environment=outpost_env,
             executor=executor,
             version="test",
         )
@@ -170,7 +170,7 @@ def test_executor_errored_integration_nonblocking():
 
         app = Outpost(
             checks=[failing_check],
-            outpost_environment=outpost_env,
+            execution_environment=outpost_env,
             executor=executor,
             version="test",
         )

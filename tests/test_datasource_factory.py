@@ -59,7 +59,7 @@ def test_register_datasource_factory() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -76,7 +76,7 @@ def test_resolve_datasource_from_factory() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -99,7 +99,7 @@ def test_resolve_datasource_from_factory_caching() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -122,7 +122,7 @@ def test_resolve_datasource_from_factory_with_different_args() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -154,7 +154,7 @@ def test_resolve_datasource_from_factory_with_kwargs() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -179,7 +179,7 @@ def test_factory_not_registered() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -211,7 +211,7 @@ def test_check_with_factory_datasource() -> None:
     # Create an Outpost instance with the check
     app = Outpost(
         checks=[test_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -258,7 +258,7 @@ def test_check_with_multiple_factory_datasources() -> None:
     # Create an Outpost instance with the check
     app = Outpost(
         checks=[test_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -307,7 +307,7 @@ def test_check_with_mixed_datasources() -> None:
     # Create an Outpost instance with the check
     app = Outpost(
         checks=[test_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -357,7 +357,7 @@ def test_outpost_resolve_datasources_with_factory() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[check_obj],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -393,7 +393,7 @@ def test_outpost_run_checks_with_factory() -> None:
     # Create an Outpost instance with the check
     app = Outpost(
         checks=[test_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
@@ -485,7 +485,7 @@ def test_annotated_with_non_fromfactory() -> None:
     # Create an Outpost instance
     app = Outpost(
         checks=[check_obj],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
