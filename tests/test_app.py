@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from outpost.app import Outpost
-from outpost.check import Check
+from outpost.check import Check, check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
 from outpost.globals import current_app
@@ -98,7 +98,9 @@ def test_run_checks_once():
     """Test that the run_checks_once method runs all checks and outputs the results."""
     # Create a mock check that returns a known ExecutionResult
     mock_check = MagicMock(spec=Check)
+    mock_check.name = "Test Check"
     mock_check.environments = [TEST_ENVIRONMENT]
+    mock_check.cache_for = None
     execution_result = ExecutionResult(
         piggyback_host="test-host",
         service_name="test-service",
@@ -127,12 +129,6 @@ def test_run_checks_once():
         # Verify that sys.stdout.buffer.write was called with the expected data
         assert mock_write.call_count > 0
 
-        # The first call should be the header
-        assert mock_write.call_args_list[0][0][0] == b"<<<<"
-
-        # The second call should be the piggyback host
-        assert mock_write.call_args_list[1][0][0] == b"test-host"
-
         # Collect all the data written to stdout
         all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
 
@@ -150,7 +146,9 @@ def test_run_checks_once_with_multiple_checks():
     """Test that the run_checks_once method runs multiple checks."""
     # Create two mock checks
     mock_check1 = MagicMock(spec=Check)
+    mock_check1.name = "Test Check 1"
     mock_check1.environments = [TEST_ENVIRONMENT]
+    mock_check1.cache_for = None
     execution_result1 = ExecutionResult(
         piggyback_host="test-host-1",
         service_name="test-service-1",
@@ -162,7 +160,9 @@ def test_run_checks_once_with_multiple_checks():
     mock_check1.run.return_value = [execution_result1]
 
     mock_check2 = MagicMock(spec=Check)
+    mock_check2.name = "Test Check 2"
     mock_check2.environments = [TEST_ENVIRONMENT]
+    mock_check2.cache_for = None
     execution_result2 = ExecutionResult(
         piggyback_host="test-host-2",
         service_name="test-service-2",
@@ -199,8 +199,8 @@ def test_run_checks_once_with_multiple_checks():
         # Decode the base64 data using the utility function
         json_data_list = decode_checkmk_output(all_data)
 
-        # Verify we found two results
-        assert len(json_data_list) == 2
+        # Verify we found three results (our two and the one default outpost check)
+        assert len(json_data_list) == 3
 
         # Verify the first result
         assert any(
@@ -266,3 +266,55 @@ def test_run_checks_once_with_real_check():
         assert json_data["environment"] == "test-env"
         assert json_data["check_state"] == "OK"
         assert json_data["summary"] == "Test passed"
+
+
+def test_ensure_current_app_is_set_in_check():
+    @check(
+        name="Current app is set in check",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def check_func(test_datasource: TestDatasource):
+        _ = test_datasource
+
+        from outpost.globals import current_app
+
+        return ok(repr(current_app))
+
+    app = Outpost(
+        checks=[check_func],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource(TestDatasource)
+
+    with app.app_context():
+        raw_output = b"".join(app.run_checks())
+        decoded_output = decode_checkmk_output(raw_output)
+        for item in decoded_output:
+            item.pop("check_definition", None)
+
+    assert sorted(decoded_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "check_state": "OK",
+                "details": None,
+                "environment": "test-env",
+                "metrics": [],
+                "service_labels": {"test": "true"},
+                "service_name": "Current app is set in check",
+                "summary": repr(app),
+            },
+            {
+                "check_state": "OK",
+                "details": "Check functions:\n- tests.test_app.test_ensure_current_app_is_set_in_check.<locals>.check_func",
+                "environment": "test-env",
+                "metrics": [],
+                "service_labels": {},
+                "service_name": "Run checks",
+                "summary": "Ran 1 checks",
+            },
+        ],
+        key=lambda result: result["service_name"],
+    )

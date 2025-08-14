@@ -220,6 +220,7 @@ def test_check_with_factory_datasource() -> None:
 
     # Run the check
     results = test_check.run(
+        outpost=app,
         datasources={
             "datasource": app._resolve_datasource_from_factory(
                 FromFactory(TestFactory, "test-service")
@@ -267,6 +268,7 @@ def test_check_with_multiple_factory_datasources() -> None:
 
     # Run the check
     results = test_check.run(
+        outpost=app,
         datasources={
             "datasource1": app._resolve_datasource_from_factory(
                 FromFactory(TestFactory, "service1")
@@ -317,6 +319,7 @@ def test_check_with_mixed_datasources() -> None:
 
     # Run the check
     results = test_check.run(
+        outpost=app,
         datasources={
             "regular": TestDatasource(),
             "factory": app._resolve_datasource_from_factory(

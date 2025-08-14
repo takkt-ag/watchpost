@@ -23,7 +23,7 @@ import io
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from .cache import Cache, CacheEntry, Storage
 from .datasource import Datasource
@@ -40,6 +40,9 @@ from .utils import (
     get_invocation_information,
     normalize_to_timedelta,
 )
+
+if TYPE_CHECKING:
+    from .app import Outpost
 
 CheckFunctionResult = (
     CheckResult
@@ -118,6 +121,7 @@ class Check:
     def run(
         self,
         *,
+        outpost: Outpost,
         environment: Environment,
         datasources: dict[str, Datasource],
     ) -> list[ExecutionResult]:
@@ -135,7 +139,8 @@ class Check:
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
-            initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
+            with outpost.app_context():
+                initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
         normalized_results = normalize_check_function_result(
             initial_result,
             stdout,

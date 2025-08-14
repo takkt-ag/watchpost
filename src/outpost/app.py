@@ -20,7 +20,7 @@ import logging
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated, Any, TypeVar, get_args, get_origin
+from typing import Annotated, Any, TypeVar, assert_never, get_args, get_origin
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
@@ -284,72 +284,105 @@ class Outpost:
                 "One or more checks are not well-configured", exceptions
             )
 
+    def _run_check(
+        self,
+        check: Check,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult] | None:
+        scheduling_decision = self._resolve_check_scheduling_decision(
+            check, environment
+        )
+        check_results_cache_entry = self._check_cache.get_check_results_cache_entry(
+            check=check,
+            environment=environment,
+            return_expired=True,
+        )
+
+        match scheduling_decision:
+            case SchedulingDecision.SCHEDULE:
+                # Fall through to the logic below.
+                pass
+            case SchedulingDecision.SKIP:
+                if not check_results_cache_entry:
+                    return [
+                        ExecutionResult(
+                            piggyback_host="NOTIMPLENTEDYET",
+                            service_name=check.service_name,
+                            service_labels=check.service_labels,
+                            environment_name=environment.name,
+                            check_state=CheckState.UNKNOWN,
+                            summary="Check is temporarily unschedulable and no prior results are available",
+                            check_definition=check.invocation_information,
+                        )
+                    ]
+                return check_results_cache_entry.value
+            case SchedulingDecision.DONT_SCHEDULE:
+                return None
+            case _:
+                assert_never(scheduling_decision)  # type: ignore[type-assertion-failure]
+
+        executor_key = (check.name, environment.name)
+        should_update_cache = (
+            check.cache_for is None
+            or check_results_cache_entry is None
+            or check_results_cache_entry.is_expired()
+        )
+        can_reuse_results = (
+            check_results_cache_entry is not None
+            and not check_results_cache_entry.is_expired()
+        )
+
+        if should_update_cache or not can_reuse_results:
+            self.executor.submit(
+                key=executor_key,
+                func=check.run,
+                resubmit=check.cache_for is None,
+                outpost=self,
+                environment=environment,
+                datasources=datasources,
+            )
+
+        if can_reuse_results:
+            return check_results_cache_entry.value  # type: ignore[union-attr]
+
+        maybe_execution_results = self.executor.result(key=executor_key)
+        if not maybe_execution_results:
+            return [
+                ExecutionResult(
+                    piggyback_host="NOTIMPLENTEDYET",
+                    service_name=check.service_name,
+                    service_labels=check.service_labels,
+                    environment_name=environment.name,
+                    check_state=CheckState.UNKNOWN,
+                    summary="Check is running asynchronously and first results are not available yet",
+                    check_definition=check.invocation_information,
+                )
+            ]
+        return maybe_execution_results
+
     def run_checks(self) -> Generator[bytes]:
-        yield from self._generate_checkmk_agent_output()
+        with self.app_context():
+            yield from self._generate_checkmk_agent_output()
 
-        for check in self.checks:
-            datasources = self._resolve_datasources(check)
-            for environment in check.environments:
-                check_results_cache_entry = (
-                    self._check_cache.get_check_results_cache_entry(
-                        check,
-                        environment,
-                        return_expired=True,
-                    )
-                )
-
-                executor_key = (check.name, environment.name)
-                should_update_cache = (
-                    check.cache_for is None
-                    or check_results_cache_entry is None
-                    or check_results_cache_entry.is_expired()
-                )
-                can_reuse_results = (
-                    check_results_cache_entry is not None
-                    and not check_results_cache_entry.is_expired()
-                )
-
-                if should_update_cache or not can_reuse_results:
-                    self.executor.submit(
-                        key=executor_key,
-                        func=check.run,
-                        resubmit=check.cache_for is None,
+            for check in self.checks:
+                datasources = self._resolve_datasources(check)
+                for environment in check.environments:
+                    execution_results = self._run_check(
+                        check=check,
                         environment=environment,
                         datasources=datasources,
                     )
 
-                if can_reuse_results:
-                    execution_results = check_results_cache_entry.value  # type: ignore[union-attr]
-                else:
-                    maybe_execution_results = self.executor.result(key=executor_key)
-                    if not maybe_execution_results:
-                        execution_results = [
-                            ExecutionResult(
-                                piggyback_host="NOTIMPLENTEDYET",
-                                service_name=check.service_name,
-                                service_labels=check.service_labels,
-                                environment_name=environment.name,
-                                check_state=CheckState.UNKNOWN,
-                                summary="Check is running asynchronously and first results are not available yet",
-                                check_definition=check.invocation_information,
-                            )
-                        ]
-                    else:
-                        execution_results = maybe_execution_results
+                    if not execution_results:
+                        continue
 
-                for execution_result in execution_results:
-                    yield from execution_result.generate_checkmk_output()
+                    for execution_result in execution_results:
+                        yield from execution_result.generate_checkmk_output()
 
-        yield from self._generate_synthetic_result_outputs()
+            yield from self._generate_synthetic_result_outputs()
 
     def run_checks_once(self) -> None:
         with self.app_context():
-            for check in self.checks:
-                datasources = self._resolve_datasources(check)
-                for environment in check.environments:
-                    execution_results = check.run(
-                        datasources=datasources, environment=environment
-                    )
-                    for execution_result in execution_results:
-                        for chunk in execution_result.generate_checkmk_output():
-                            sys.stdout.buffer.write(chunk)
+            for chunk in self.run_checks():
+                sys.stdout.buffer.write(chunk)
