@@ -84,10 +84,7 @@ def test_invalid_combination():
     icc_exception = exception_group.exceptions[0]
     assert isinstance(icc_exception, InvalidCheckConfiguration)
     assert icc_exception.check == invalid_combination
-    assert (
-        icc_exception.reason
-        == "The target environments are not supported by any of the given strategies."
-    )
+    assert "Target-environment constraints conflict" in icc_exception.reason
 
 
 def test_decision_must_run_in_current_execution_environment():
@@ -203,10 +200,7 @@ def test_invalid_disjoint_execution_environments():
     assert len(exception_group.exceptions) == 1
     icc_exception = exception_group.exceptions[0]
     assert isinstance(icc_exception, InvalidCheckConfiguration)
-    assert (
-        icc_exception.reason
-        == "No execution environments are supported by any of the given strategies."
-    )
+    assert "Conflicting execution-environment constraints" in icc_exception.reason
 
 
 def test_skip_decision_is_selected_over_schedule():
@@ -290,3 +284,76 @@ def test_aggregation_app_and_datasource_strategies():
             aggregated_check, Monitoring
         )
     assert decision2 == SchedulingDecision.SCHEDULE
+
+
+def test_target_env_subset_allowed():
+    class WideTargetDatasource(Datasource):
+        scheduling_strategies = (
+            MustRunInGivenExecutionEnvironmentStrategy(Preprod),
+            MustRunAgainstGivenTargetEnvironmentStrategy(Monitoring, Preprod),
+        )
+
+    @check(
+        name="Subset target",
+        service_labels={"test": "true"},
+        environments=[Preprod],
+        cache_for=None,
+    )
+    def subset_target_check(_ds: WideTargetDatasource) -> CheckResult:
+        raise AssertionError("Should not be executed in this verification test")
+
+    app = Outpost(
+        checks=[subset_target_check],
+        execution_environment=Preprod,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource(WideTargetDatasource)
+
+    # With strategies supporting a superset of target environments, this should be valid
+    app._verify_check_scheduling()
+
+
+def test_invalid_exec_and_target_envs_without_intersection_but_current_required():
+    class ExecMonitoring(Datasource):
+        scheduling_strategies = (
+            MustRunInGivenExecutionEnvironmentStrategy(Monitoring),
+        )
+
+    class TargetPreprodAndCurrent(Datasource):
+        scheduling_strategies = (
+            MustRunInCurrentExecutionEnvironmentStrategy(),
+            MustRunAgainstGivenTargetEnvironmentStrategy(Preprod),
+        )
+
+    @check(
+        name="Exec/Target mismatch with current requirement",
+        service_labels={"test": "true"},
+        environments=[Preprod],
+        cache_for=None,
+    )
+    def impossible_combo(
+        _ds1: ExecMonitoring,
+        _ds2: TargetPreprodAndCurrent,
+    ) -> CheckResult:
+        raise AssertionError("Should not be executed in this verification test")
+
+    app = Outpost(
+        checks=[impossible_combo],
+        execution_environment=Monitoring,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource(ExecMonitoring)
+    app.register_datasource(TargetPreprodAndCurrent)
+
+    # This should trigger the branch where both overlapping execution and target sets
+    # exist, MustRunInCurrentExecutionEnvironmentStrategy is present, but they don't
+    # intersect, thus raising InvalidCheckConfiguration with the specific reason.
+    with pytest.raises(ExceptionGroup) as exc_info:
+        app._verify_check_scheduling()
+
+    assert isinstance(exc_info.value, ExceptionGroup)
+    exception_group: ExceptionGroup = exc_info.value
+    assert len(exception_group.exceptions) == 1
+    icc_exception = exception_group.exceptions[0]
+    assert isinstance(icc_exception, InvalidCheckConfiguration)
+    assert "Current=Target requirement cannot be satisfied" in icc_exception.reason

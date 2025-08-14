@@ -229,7 +229,12 @@ class DetectImpossibleCombinationStrategy(SchedulingStrategy):
             )
         )
 
-        # Verify the required execution environments align across the strategies.
+        # Verify that execution-environment constraints across all strategies are compatible.
+        #
+        # We aggregate all MustRunInGivenExecutionEnvironmentStrategy constraints and
+        # require their intersection to be non-empty. If it's empty, there is no single
+        # environment from which the check could legally run.
+        # Example: DS A requires Monitoring, DS B requires Preprod -> impossible.
         overlapping_execution_environments: set[Environment] | None = None
         if must_run_in_given_execution_environment_strategies:
             overlapping_execution_environments = reduce(
@@ -242,10 +247,16 @@ class DetectImpossibleCombinationStrategy(SchedulingStrategy):
             if not overlapping_execution_environments:
                 raise InvalidCheckConfiguration(
                     check,
-                    "No execution environments are supported by any of the given strategies.",
+                    "Conflicting execution-environment constraints: no common execution environment across MustRunInGivenExecutionEnvironment strategies (e.g., one datasource requires 'Monitoring' while another requires 'Preprod').",
                 )
 
-        # Verify the required target environments align across the strategies.
+        # Verify that target-environment constraints match the check's declared targets.
+        #
+        # We aggregate all MustRunAgainstGivenTargetEnvironmentStrategy constraints and
+        # compare their intersection to the set of environments declared in the @check
+        # decorator. They must be identical; otherwise the check declares to target
+        # environments that not all strategies support.
+        # Example: Check targets [Monitoring, Preprod] but one datasource only allows [Preprod].
         overlapping_target_environments: set[Environment] | None = None
         if must_run_against_given_target_environment_strategies:
             overlapping_target_environments = reduce(
@@ -255,13 +266,17 @@ class DetectImpossibleCombinationStrategy(SchedulingStrategy):
                     for strategy in must_run_against_given_target_environment_strategies
                 ),
             )
-            if overlapping_target_environments != set(check.environments):
+            if not overlapping_target_environments.issuperset(set(check.environments)):
                 raise InvalidCheckConfiguration(
                     check,
-                    "The target environments are not supported by any of the given strategies.",
+                    "Target-environment constraints conflict with the check's declared environments: the @check(..., environments=[...]) set must be a subset of the intersection across MustRunAgainstGivenTargetEnvironment strategies.",
                 )
 
-        # TODO: explain this
+        # If the check must run in the current execution environment, then the set of
+        # allowed execution environments and the set of allowed target environments must
+        # overlap — because current_execution_environment == target_environment at runtime.
+        # If there's no overlap, the check can never be scheduled anywhere.
+        # Example: execution must be Monitoring, target must be Preprod -> impossible.
         if must_run_in_current_execution_environment:
             if overlapping_execution_environments and overlapping_target_environments:
                 if not overlapping_execution_environments.intersection(
@@ -269,7 +284,7 @@ class DetectImpossibleCombinationStrategy(SchedulingStrategy):
                 ):
                     raise InvalidCheckConfiguration(
                         check,
-                        "The execution environments and target environments are not supported by any of the given strategies.",
+                        "Current=Target requirement cannot be satisfied: allowed execution environments and allowed target environments have no overlap (e.g., execution must be 'Monitoring' while target must be 'Preprod').",
                     )
 
         return SchedulingDecision.SCHEDULE
