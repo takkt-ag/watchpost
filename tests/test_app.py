@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-
+from typing import override
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -318,3 +318,161 @@ def test_ensure_current_app_is_set_in_check():
         ],
         key=lambda result: result["service_name"],
     )
+
+
+def test_run_checks_skip_without_prior_results_returns_unknown():
+    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+
+    class AlwaysSkipStrategy(SchedulingStrategy):
+        @override
+        def schedule(self, check, current_execution_environment, target_environment):
+            return SchedulingDecision.SKIP
+
+    @check(
+        name="Skip without prior",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def my_check():
+        raise AssertionError("Should not be executed when SKIP without prior results")
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+        default_scheduling_strategies=[AlwaysSkipStrategy()],
+    )
+
+    with patch("sys.stdout.buffer.write") as mock_write:
+        app.run_checks_once()
+        all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
+        results = decode_checkmk_output(all_data)
+        result = next(r for r in results if r["service_name"] == "Skip without prior")
+        assert result["check_state"] == "UNKNOWN"
+        assert (
+            result["summary"]
+            == "Check is temporarily unschedulable and no prior results are available"
+        )
+
+
+def test_run_checks_skip_with_prior_results_reuses_cache():
+    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+
+    class AlwaysSkipStrategy(SchedulingStrategy):
+        @override
+        def schedule(self, check, current_execution_environment, target_environment):
+            return SchedulingDecision.SKIP
+
+    @check(
+        name="Skip with prior",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for="5s",
+    )
+    def my_check():
+        raise AssertionError("Should not be executed when cache exists and SKIP")
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+        default_scheduling_strategies=[AlwaysSkipStrategy()],
+    )
+
+    # Prime the cache with a prior OK result
+    execution_result = ExecutionResult(
+        piggyback_host="pre",
+        service_name="Skip with prior",
+        service_labels={"test": "true"},
+        environment_name=TEST_ENVIRONMENT.name,
+        check_state=CheckState.OK,
+        summary="Cached result",
+    )
+    app._check_cache.store_check_results(my_check, TEST_ENVIRONMENT, [execution_result])
+
+    with patch("sys.stdout.buffer.write") as mock_write:
+        app.run_checks_once()
+        all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
+        results = decode_checkmk_output(all_data)
+        result = next(r for r in results if r["service_name"] == "Skip with prior")
+        assert result["check_state"] == "OK"
+        assert result["summary"] == "Cached result"
+
+
+def test_run_checks_reuses_cached_results_under_schedule():
+    call_count = {"n": 0}
+
+    @check(
+        name="Cached schedule",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for="10s",
+    )
+    def my_check():
+        call_count["n"] += 1
+        return ok(f"Run {call_count['n']}")
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+
+    # First run: executes the check and stores the result in cache
+    with patch("sys.stdout.buffer.write") as mock_write1:
+        app.run_checks_once()
+        all_data1 = b"".join(
+            call_args[0][0] for call_args in mock_write1.call_args_list
+        )
+        results1 = decode_checkmk_output(all_data1)
+        res1 = next(r for r in results1 if r["service_name"] == "Cached schedule")
+        assert res1["summary"] == "Run 1"
+        assert call_count["n"] == 1
+
+    # Second run: should reuse cached results, not execute the check again
+    with patch("sys.stdout.buffer.write") as mock_write2:
+        app.run_checks_once()
+        all_data2 = b"".join(
+            call_args[0][0] for call_args in mock_write2.call_args_list
+        )
+        results2 = decode_checkmk_output(all_data2)
+        res2 = next(r for r in results2 if r["service_name"] == "Cached schedule")
+        assert res2["summary"] == "Run 1"
+        assert call_count["n"] == 1
+
+
+def test_run_checks_dont_schedule_produces_no_results():
+    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+
+    class AlwaysDontScheduleStrategy(SchedulingStrategy):
+        @override
+        def schedule(self, check, current_execution_environment, target_environment):
+            return SchedulingDecision.DONT_SCHEDULE
+
+    @check(
+        name="Dont schedule",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def my_check():
+        raise AssertionError("Should not be executed when DONT_SCHEDULE")
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+        default_scheduling_strategies=[AlwaysDontScheduleStrategy()],
+    )
+
+    with patch("sys.stdout.buffer.write") as mock_write:
+        app.run_checks_once()
+        all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
+        results = decode_checkmk_output(all_data)
+
+        # There should only be the synthetic "Run checks" result
+        assert len(results) == 1
+        assert results[0]["service_name"] == "Run checks"
+        # And definitely no result for our check
+        assert not any(r["service_name"] == "Dont schedule" for r in results)
