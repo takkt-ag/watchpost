@@ -196,12 +196,6 @@ class Outpost:
 
         datasources = {}
         for parameter in check.signature.parameters.values():
-            if isinstance(parameter.annotation, FromFactory):
-                datasources[parameter.name] = self._resolve_datasource_from_factory(
-                    parameter.annotation
-                )
-                continue
-
             if get_origin(parameter.annotation) is Annotated:
                 type_key, *args = get_args(parameter.annotation)
                 annotation_class = args[0]
