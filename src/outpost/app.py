@@ -96,11 +96,15 @@ class Outpost:
 
     @contextmanager
     def app_context(self) -> Generator[Outpost]:
-        _token = _cv.set(self)
         try:
+            _cv.get()
             yield self
-        finally:
-            _cv.reset(_token)
+        except LookupError:
+            _token = _cv.set(self)
+            try:
+                yield self
+            finally:
+                _cv.reset(_token)
 
     def register_datasource(
         self,
