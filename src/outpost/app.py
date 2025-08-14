@@ -359,6 +359,12 @@ class Outpost:
                     check_definition=check.invocation_information,
                 )
             ]
+
+        self._check_cache.store_check_results(
+            check=check,
+            environment=environment,
+            results=maybe_execution_results,
+        )
         return maybe_execution_results
 
     def run_checks(self) -> Generator[bytes]:
