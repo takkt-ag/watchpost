@@ -34,7 +34,7 @@ TEST_ENVIRONMENT = Environment("test-env")
 def test_healthcheck():
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     client = TestClient(app)
@@ -48,7 +48,7 @@ def test_executor_statistics():
     """Test that the executor statistics endpoint returns the expected statistics."""
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     mock_statistics = CheckExecutor.Statistics(
@@ -78,7 +78,7 @@ def test_executor_errored():
     # Create a mock check
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     mock_errored = {
@@ -101,7 +101,7 @@ def test_root():
     """Test that the root endpoint returns a streaming response with check results."""
     app = Outpost(
         checks=[],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     expected_output = [
@@ -133,7 +133,7 @@ def test_root_with_real_check():
 
     app = Outpost(
         checks=[simple_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     client = TestClient(app)
@@ -194,7 +194,7 @@ def test_root_with_real_check_and_datasource():
 
     app = Outpost(
         checks=[simple_check],
-        outpost_environment=TEST_ENVIRONMENT,
+        execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     app.register_datasource(TestDatasource)

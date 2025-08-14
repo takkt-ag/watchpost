@@ -16,10 +16,11 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated, Any, TypeVar, get_args, get_origin
+from typing import Annotated, Any, TypeVar, assert_never, get_args, get_origin
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
@@ -32,6 +33,14 @@ from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
 from .result import CheckState, ExecutionResult
+from .scheduling_strategy import (
+    DetectImpossibleCombinationStrategy,
+    InvalidCheckConfiguration,
+    SchedulingDecision,
+    SchedulingStrategy,
+)
+
+logger = logging.getLogger(f"{__package__}.{__name__}")
 
 _D = TypeVar("_D", bound=Datasource)
 _DF = TypeVar("_DF", bound=DatasourceFactory)
@@ -42,19 +51,27 @@ class Outpost:
         self,
         *,
         checks: list[Check],
-        outpost_environment: Environment,
+        execution_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
         executor: CheckExecutor[list[ExecutionResult]] | None = None,
         check_cache_storage: Storage | None = None,
+        default_scheduling_strategies: list[SchedulingStrategy] | None = None,
     ):
         self.checks = checks
-        self.outpost_environment = outpost_environment
+        self.execution_environment = execution_environment
         self.version = version
         if executor:
             self.executor = executor
         else:
             self.executor = CheckExecutor(max_workers=max_workers)
+
+        if default_scheduling_strategies:
+            self.default_scheduling_strategies = default_scheduling_strategies
+        else:
+            self.default_scheduling_strategies = [
+                DetectImpossibleCombinationStrategy(),
+            ]
 
         self._check_cache = CheckCache(
             storage=check_cache_storage or InMemoryStorage(),
@@ -66,6 +83,9 @@ class Outpost:
             type[Datasource] | tuple[type[DatasourceFactory], int, int], Datasource
         ] = {}
 
+        self._resolved_datasources: dict[Check, dict[str, Datasource]] = {}
+        self._resolved_strategies: dict[Check, list[SchedulingStrategy]] = {}
+
         self._starlette = Starlette(
             routes=http.routes,
         )
@@ -76,17 +96,26 @@ class Outpost:
 
     @contextmanager
     def app_context(self) -> Generator[Outpost]:
-        _token = _cv.set(self)
         try:
+            _cv.get()
             yield self
-        finally:
-            _cv.reset(_token)
+        except LookupError:
+            _token = _cv.set(self)
+            try:
+                yield self
+            finally:
+                _cv.reset(_token)
 
     def register_datasource(
         self,
         datasource_type: type[_D],
         **kwargs: dict[str, Any],
     ) -> None:
+        if datasource_type.scheduling_strategies is Ellipsis:
+            logger.warning(
+                "The provided datasource '%s' has no scheduling strategies defined. Please make sure to either define them or explicitly set scheduling_strategies=().",
+                datasource_type.__name__,
+            )
         self._datasource_definitions[datasource_type] = kwargs
 
     def register_datasource_factory(self, factory_type: type[_DF]) -> None:
@@ -108,7 +137,7 @@ class Outpost:
                 piggyback_host="",
                 service_name="Run checks",
                 service_labels={},
-                environment_name=self.outpost_environment.name,
+                environment_name=self.execution_environment.name,
                 check_state=CheckState.OK,
                 summary=f"Ran {len(self.checks)} checks",
                 details=details,
@@ -148,6 +177,14 @@ class Outpost:
                 *from_factory.args,
                 **from_factory.kwargs,
             )
+
+            if getattr(datasource, "scheduling_strategies", ...) is Ellipsis:
+                logger.warning(
+                    "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
+                    datasource,
+                    from_factory.factory_type,
+                )
+
             self._instantiated_datasources[from_factory.cache_key] = datasource
             return datasource
 
@@ -158,14 +195,11 @@ class Outpost:
         )
 
     def _resolve_datasources(self, check: Check) -> dict[str, Datasource]:
+        if resolved_datasources := self._resolved_datasources.get(check):
+            return resolved_datasources
+
         datasources = {}
         for parameter in check.signature.parameters.values():
-            if isinstance(parameter.annotation, FromFactory):
-                datasources[parameter.name] = self._resolve_datasource_from_factory(
-                    parameter.annotation
-                )
-                continue
-
             if get_origin(parameter.annotation) is Annotated:
                 type_key, *args = get_args(parameter.annotation)
                 annotation_class = args[0]
@@ -188,74 +222,167 @@ class Outpost:
                 )
                 continue
 
+        self._resolved_datasources[check] = datasources
         return datasources
 
+    def _resolve_scheduling_strategies(self, check: Check) -> list[SchedulingStrategy]:
+        if resolved_strategies := self._resolved_strategies.get(check):
+            return resolved_strategies
+
+        strategies = []
+
+        if check.scheduling_strategies:
+            strategies.extend(check.scheduling_strategies)
+
+        for datasource in self._resolve_datasources(check).values():
+            if (
+                datasource.scheduling_strategies
+                and datasource.scheduling_strategies is not Ellipsis
+            ):
+                strategies.extend(datasource.scheduling_strategies)
+
+        strategies.extend(self.default_scheduling_strategies)
+
+        self._resolved_strategies[check] = strategies
+        return strategies
+
+    def _resolve_check_scheduling_decision(
+        self,
+        check: Check,
+        environment: Environment,
+    ) -> SchedulingDecision:
+        strategies = self._resolve_scheduling_strategies(check)
+
+        final_decision = SchedulingDecision.SCHEDULE
+        for strategy in strategies:
+            decision = strategy.schedule(
+                check=check,
+                current_execution_environment=self.execution_environment,
+                target_environment=environment,
+            )
+            if decision > final_decision:
+                final_decision = decision
+
+        return final_decision
+
+    def _verify_check_scheduling(self) -> None:
+        exceptions = []
+        with self.app_context():
+            for check in self.checks:
+                for target_environment in check.environments:
+                    # We ignore the return value, we only care if .schedule
+                    # throws an InvalidCheckConfiguration exception.
+                    try:
+                        self._resolve_check_scheduling_decision(
+                            check, target_environment
+                        )
+                    except InvalidCheckConfiguration as e:
+                        exceptions.append(e)
+
+        if exceptions:
+            raise ExceptionGroup(
+                "One or more checks are not well-configured", exceptions
+            )
+
+    def _run_check(
+        self,
+        check: Check,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult] | None:
+        scheduling_decision = self._resolve_check_scheduling_decision(
+            check, environment
+        )
+        check_results_cache_entry = self._check_cache.get_check_results_cache_entry(
+            check=check,
+            environment=environment,
+            return_expired=True,
+        )
+
+        match scheduling_decision:
+            case SchedulingDecision.SCHEDULE:
+                # Fall through to the logic below.
+                pass
+            case SchedulingDecision.SKIP:
+                if not check_results_cache_entry:
+                    return [
+                        ExecutionResult(
+                            piggyback_host="NOTIMPLENTEDYET",
+                            service_name=check.service_name,
+                            service_labels=check.service_labels,
+                            environment_name=environment.name,
+                            check_state=CheckState.UNKNOWN,
+                            summary="Check is temporarily unschedulable and no prior results are available",
+                            check_definition=check.invocation_information,
+                        )
+                    ]
+                return check_results_cache_entry.value
+            case SchedulingDecision.DONT_SCHEDULE:
+                return None
+            case _:
+                assert_never(scheduling_decision)  # type: ignore[type-assertion-failure]
+
+        executor_key = (check.name, environment.name)
+        should_update_cache = (
+            check.cache_for is None
+            or check_results_cache_entry is None
+            or check_results_cache_entry.is_expired()
+        )
+        can_reuse_results = (
+            check_results_cache_entry is not None
+            and not check_results_cache_entry.is_expired()
+        )
+
+        if should_update_cache or not can_reuse_results:
+            self.executor.submit(
+                key=executor_key,
+                func=check.run,
+                resubmit=check.cache_for is None,
+                outpost=self,
+                environment=environment,
+                datasources=datasources,
+            )
+
+        if can_reuse_results:
+            return check_results_cache_entry.value  # type: ignore[union-attr]
+
+        maybe_execution_results = self.executor.result(key=executor_key)
+        if not maybe_execution_results:
+            return [
+                ExecutionResult(
+                    piggyback_host="NOTIMPLENTEDYET",
+                    service_name=check.service_name,
+                    service_labels=check.service_labels,
+                    environment_name=environment.name,
+                    check_state=CheckState.UNKNOWN,
+                    summary="Check is running asynchronously and first results are not available yet",
+                    check_definition=check.invocation_information,
+                )
+            ]
+        return maybe_execution_results
+
     def run_checks(self) -> Generator[bytes]:
-        yield from self._generate_checkmk_agent_output()
+        with self.app_context():
+            yield from self._generate_checkmk_agent_output()
 
-        for check in self.checks:
-            datasources = self._resolve_datasources(check)
-            for environment in check.environments:
-                check_results_cache_entry = (
-                    self._check_cache.get_check_results_cache_entry(
-                        check,
-                        environment,
-                        return_expired=True,
-                    )
-                )
-
-                executor_key = (check.name, environment.name)
-                should_update_cache = (
-                    check.cache_for is None
-                    or check_results_cache_entry is None
-                    or check_results_cache_entry.is_expired()
-                )
-                can_reuse_results = (
-                    check_results_cache_entry is not None
-                    and not check_results_cache_entry.is_expired()
-                )
-
-                if should_update_cache or not can_reuse_results:
-                    self.executor.submit(
-                        key=executor_key,
-                        func=check.run,
-                        resubmit=check.cache_for is None,
+            for check in self.checks:
+                datasources = self._resolve_datasources(check)
+                for environment in check.environments:
+                    execution_results = self._run_check(
+                        check=check,
                         environment=environment,
                         datasources=datasources,
                     )
 
-                if can_reuse_results:
-                    execution_results = check_results_cache_entry.value  # type: ignore[union-attr]
-                else:
-                    maybe_execution_results = self.executor.result(key=executor_key)
-                    if not maybe_execution_results:
-                        execution_results = [
-                            ExecutionResult(
-                                piggyback_host="NOTIMPLENTEDYET",
-                                service_name=check.service_name,
-                                service_labels=check.service_labels,
-                                environment_name=environment.name,
-                                check_state=CheckState.UNKNOWN,
-                                summary="Check is running asynchronously and first results are not available yet",
-                                check_definition=check.invocation_information,
-                            )
-                        ]
-                    else:
-                        execution_results = maybe_execution_results
+                    if not execution_results:
+                        continue
 
-                for execution_result in execution_results:
-                    yield from execution_result.generate_checkmk_output()
+                    for execution_result in execution_results:
+                        yield from execution_result.generate_checkmk_output()
 
-        yield from self._generate_synthetic_result_outputs()
+            yield from self._generate_synthetic_result_outputs()
 
     def run_checks_once(self) -> None:
         with self.app_context():
-            for check in self.checks:
-                datasources = self._resolve_datasources(check)
-                for environment in check.environments:
-                    execution_results = check.run(
-                        datasources=datasources, environment=environment
-                    )
-                    for execution_result in execution_results:
-                        for chunk in execution_result.generate_checkmk_output():
-                            sys.stdout.buffer.write(chunk)
+            for chunk in self.run_checks():
+                sys.stdout.buffer.write(chunk)
