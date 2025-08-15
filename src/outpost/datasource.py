@@ -34,6 +34,7 @@ class Datasource(ABC):
 
 class DatasourceFactory(Protocol):
     new: Callable[..., Datasource]
+    scheduling_strategies: tuple[SchedulingStrategy, ...] | EllipsisType | None = ...
 
 
 class FromFactory:

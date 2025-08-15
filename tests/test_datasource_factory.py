@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from typing import Annotated, cast
 
 import pytest
@@ -23,6 +24,10 @@ from outpost.check import Check, check
 from outpost.datasource import Datasource, DatasourceFactory, FromFactory
 from outpost.environment import Environment
 from outpost.result import CheckResult, ok
+from outpost.scheduling_strategy import (
+    MustRunInGivenExecutionEnvironmentStrategy,
+    SchedulingDecision,
+)
 from tests.utils import BlockingCheckExecutor, decode_checkmk_output
 
 # Define test environment
@@ -495,3 +500,166 @@ def test_annotated_with_non_fromfactory() -> None:
     # Attempt to resolve the datasources, which should raise a ValueError
     with pytest.raises(ValueError, match="Unsupported annotation"):
         app._resolve_datasources(check_obj)
+
+
+def test_factory_datasource_prefers_own_strategies_over_factory() -> None:
+    A = Environment("A")
+    B = Environment("B")
+
+    class OwnStrategyDatasource(Datasource):
+        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(A),)
+
+    class FactoryWithDifferentStrategy(DatasourceFactory):
+        # Factory provides a conflicting execution environment (B), but the
+        # datasource created by the factory defines its own strategy (A), which
+        # must take precedence.
+        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
+
+        def new(self, *_args, **_kwargs) -> Datasource:
+            return OwnStrategyDatasource()
+
+    @check(
+        name="factory-prefers-ds-own",
+        service_labels={"test": "true"},
+        environments=[A],
+        cache_for=None,
+    )
+    def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithDifferentStrategy)]):
+        from outpost.result import ok
+
+        return ok("unused")
+
+    from outpost.app import Outpost
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=A,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource_factory(FactoryWithDifferentStrategy)
+
+    with app.app_context():
+        # The decision should be based on the datasource's own strategy (A),
+        # not the factory's (B).
+        decision = app._resolve_check_scheduling_decision(my_check, A)
+        assert decision == SchedulingDecision.SCHEDULE
+
+        # Verify that the resolved strategies include the A constraint and not B.
+        strategies = app._resolve_scheduling_strategies(my_check)
+        a_present = False
+        b_present = False
+        for s in strategies:
+            if isinstance(s, MustRunInGivenExecutionEnvironmentStrategy):
+                if (
+                    A in s.supported_execution_environments
+                    and len(s.supported_execution_environments) == 1
+                ):
+                    a_present = True
+                if (
+                    B in s.supported_execution_environments
+                    and len(s.supported_execution_environments) == 1
+                ):
+                    b_present = True
+        assert a_present
+        assert not b_present
+
+
+def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
+    A = Environment("A")
+    B = Environment("B")
+
+    class EllipsisDatasource(Datasource):
+        # No explicit strategies -> Ellipsis from base class
+        pass
+
+    class FactoryWithStrategies(DatasourceFactory):
+        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
+
+        def new(self, *_args, **_kwargs) -> Datasource:
+            return EllipsisDatasource()
+
+    @check(
+        name="factory-strategies-applied",
+        service_labels={"test": "true"},
+        environments=[B],
+        cache_for=None,
+    )
+    def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithStrategies)]):
+        from outpost.result import ok
+
+        return ok("unused")
+
+    from outpost.app import Outpost
+
+    # Executing from B should be allowed due to factory strategies
+    app_b = Outpost(
+        checks=[my_check],
+        execution_environment=B,
+        executor=BlockingCheckExecutor(),
+    )
+    app_b.register_datasource_factory(FactoryWithStrategies)
+
+    with app_b.app_context():
+        decision_b = app_b._resolve_check_scheduling_decision(my_check, B)
+        assert decision_b == SchedulingDecision.SCHEDULE
+
+    # Executing from A should not be allowed due to factory strategies pinning to B
+    app_a = Outpost(
+        checks=[my_check],
+        execution_environment=A,
+        executor=BlockingCheckExecutor(),
+    )
+    app_a.register_datasource_factory(FactoryWithStrategies)
+
+    with app_a.app_context():
+        decision_a = app_a._resolve_check_scheduling_decision(my_check, B)
+        assert decision_a == SchedulingDecision.DONT_SCHEDULE
+
+
+def test_factory_and_datasource_without_strategies_logs_warning(caplog) -> None:
+    ENV = Environment("env")
+
+    class NoStrategyDatasource(Datasource):
+        # No explicit strategies -> Ellipsis from base class
+        pass
+
+    class FactoryWithoutStrategies(DatasourceFactory):
+        # Explicitly define no strategies
+        scheduling_strategies = ()
+
+        def new(self, *_args, **_kwargs) -> Datasource:
+            return NoStrategyDatasource()
+
+    @check(
+        name="warning-when-no-strategies",
+        service_labels={"test": "true"},
+        environments=[ENV],
+        cache_for=None,
+    )
+    def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithoutStrategies)]):
+        from outpost.result import ok
+
+        return ok("unused")
+
+    from outpost.app import Outpost
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=ENV,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource_factory(FactoryWithoutStrategies)
+
+    # Capture warnings emitted during datasource resolution
+    caplog.set_level(logging.WARNING)
+
+    with app.app_context():
+        # Trigger resolution of strategies which resolves the datasource as well
+        _ = app._resolve_scheduling_strategies(my_check)
+
+    warnings = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
+    assert any(
+        "The factory-created datasource has no scheduling strategies defined"
+        in rec.message
+        for rec in warnings
+    )

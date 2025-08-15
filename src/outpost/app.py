@@ -179,11 +179,16 @@ class Outpost:
             )
 
             if getattr(datasource, "scheduling_strategies", ...) is Ellipsis:
-                logger.warning(
-                    "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
-                    datasource,
-                    from_factory.factory_type,
-                )
+                if from_factory.factory_type.scheduling_strategies:
+                    datasource.scheduling_strategies = (
+                        from_factory.factory_type.scheduling_strategies
+                    )
+                else:
+                    logger.warning(
+                        "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
+                        datasource,
+                        from_factory.factory_type,
+                    )
 
             self._instantiated_datasources[from_factory.cache_key] = datasource
             return datasource
