@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import traceback
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Annotated, Any, TypeVar, assert_never, get_args, get_origin
@@ -28,7 +29,12 @@ from starlette.types import Receive, Scope, Send
 from . import http
 from .cache import InMemoryStorage, Storage
 from .check import Check, CheckCache
-from .datasource import Datasource, DatasourceFactory, FromFactory
+from .datasource import (
+    Datasource,
+    DatasourceFactory,
+    DatasourceUnavailable,
+    FromFactory,
+)
 from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
@@ -296,7 +302,8 @@ class Outpost:
         datasources: dict[str, Datasource],
     ) -> list[ExecutionResult] | None:
         scheduling_decision = self._resolve_check_scheduling_decision(
-            check, environment
+            check,
+            environment,
         )
         check_results_cache_entry = self._check_cache.get_check_results_cache_entry(
             check=check,
@@ -351,7 +358,44 @@ class Outpost:
         if can_reuse_results:
             return check_results_cache_entry.value  # type: ignore[union-attr]
 
-        maybe_execution_results = self.executor.result(key=executor_key)
+        try:
+            maybe_execution_results = self.executor.result(key=executor_key)
+        except DatasourceUnavailable as e:
+            additional_details = f"\n\n{e!s}\n" + "".join(traceback.format_exception(e))
+            if check_results_cache_entry and check_results_cache_entry.value:
+                for result in check_results_cache_entry.value:
+                    if result.details:
+                        result.details += additional_details
+                    else:
+                        result.details = additional_details
+                return check_results_cache_entry.value
+
+            return [
+                ExecutionResult(
+                    piggyback_host="NOTIMPLENTEDYET",
+                    service_name=check.service_name,
+                    service_labels=check.service_labels,
+                    environment_name=environment.name,
+                    check_state=CheckState.UNKNOWN,
+                    summary=str(e),
+                    details=additional_details,
+                    check_definition=check.invocation_information,
+                )
+            ]
+        except Exception as e:
+            return [
+                ExecutionResult(
+                    piggyback_host="NOTIMPLENTEDYET",
+                    service_name=check.service_name,
+                    service_labels=check.service_labels,
+                    environment_name=environment.name,
+                    check_state=CheckState.CRIT,
+                    summary=str(e),
+                    details="".join(traceback.format_exception(e)),
+                    check_definition=check.invocation_information,
+                )
+            ]
+
         if not maybe_execution_results:
             return [
                 ExecutionResult(

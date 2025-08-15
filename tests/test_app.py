@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+from datetime import timedelta
 from typing import override
 from unittest.mock import MagicMock, patch
 
@@ -20,7 +22,7 @@ import pytest
 
 from outpost.app import Outpost
 from outpost.check import Check, check
-from outpost.datasource import Datasource
+from outpost.datasource import Datasource, DatasourceUnavailable
 from outpost.environment import Environment
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
@@ -476,3 +478,83 @@ def test_run_checks_dont_schedule_produces_no_results():
         assert results[0]["service_name"] == "Run checks"
         # And definitely no result for our check
         assert not any(r["service_name"] == "Dont schedule" for r in results)
+
+
+def test_datasource_unavailable_without_cache_returns_unknown():
+    @check(
+        name="DS Unavailable",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def failing_check():
+        raise DatasourceUnavailable("temporary outage")
+
+    app = Outpost(
+        checks=[failing_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+
+    with patch("sys.stdout.buffer.write") as mock_write:
+        app.run_checks_once()
+        all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
+        results = decode_checkmk_output(all_data)
+
+    result = next(r for r in results if r["service_name"] == "DS Unavailable")
+    assert result["check_state"] == "UNKNOWN"
+    assert result["summary"] == "temporary outage"
+    assert result["details"] is not None
+    assert "temporary outage" in result["details"]
+    assert "DatasourceUnavailable" in result["details"]
+    # Synthetic result is present
+    assert any(r["service_name"] == "Run checks" for r in results)
+
+
+def test_datasource_unavailable_with_expired_cache_returns_enriched_cached_result():
+    calls = {"n": 0}
+
+    @check(
+        name="DS Unavailable Cached",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=timedelta(microseconds=1),
+    )
+    def flaky_check():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return ok("Cached ok")
+        raise DatasourceUnavailable("backend down")
+
+    app = Outpost(
+        checks=[flaky_check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+
+    # First run: stores OK in cache
+    with patch("sys.stdout.buffer.write") as mock_write1:
+        app.run_checks_once()
+        all_data1 = b"".join(
+            call_args[0][0] for call_args in mock_write1.call_args_list
+        )
+        results1 = decode_checkmk_output(all_data1)
+        res1 = next(r for r in results1 if r["service_name"] == "DS Unavailable Cached")
+        assert res1["check_state"] == "OK"
+        assert res1["summary"] == "Cached ok"
+
+    # Second run: raises DatasourceUnavailable, should reuse cached result with enriched details
+    with patch("sys.stdout.buffer.write") as mock_write2:
+        app.run_checks_once()
+        all_data2 = b"".join(
+            call_args[0][0] for call_args in mock_write2.call_args_list
+        )
+        results2 = decode_checkmk_output(all_data2)
+        res2 = next(r for r in results2 if r["service_name"] == "DS Unavailable Cached")
+
+    assert res2["check_state"] == "OK"
+    assert res2["summary"] == "Cached ok"
+    # details should be added (was None on first run) and include the exception info
+    assert res2["details"] is not None
+    assert "backend down" in res2["details"]
+    assert "DatasourceUnavailable" in res2["details"]
