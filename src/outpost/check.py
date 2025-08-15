@@ -150,17 +150,21 @@ class Check:
         )
 
         for result in normalized_results:
+            updated_service_name = self.service_name
+            if result.name_suffix:
+                updated_service_name += result.name_suffix
+
             piggyback_host = resolve_hostname(
                 outpost=outpost,
-                environment=environment,
                 check=self,
+                environment=environment,
                 result=result,
                 strict=outpost._hostname_strict,
             )
             collected_results.append(
                 ExecutionResult(
                     piggyback_host=piggyback_host,
-                    service_name=self.service_name,
+                    service_name=updated_service_name,
                     service_labels=self.service_labels,
                     environment_name=environment.name,
                     check_state=result.check_state,

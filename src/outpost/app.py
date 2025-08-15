@@ -38,7 +38,7 @@ from .datasource import (
 from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
-from .hostname import HostnameInput, to_strategy
+from .hostname import HostnameInput, resolve_hostname, to_strategy
 from .result import CheckState, ExecutionResult
 from .scheduling_strategy import (
     DetectImpossibleCombinationStrategy,
@@ -306,6 +306,14 @@ class Outpost:
         environment: Environment,
         datasources: dict[str, Datasource],
     ) -> list[ExecutionResult] | None:
+        piggyback_host = resolve_hostname(
+            outpost=self,
+            environment=environment,
+            check=check,
+            result=None,
+            strict=self._hostname_strict,
+        )
+
         scheduling_decision = self._resolve_check_scheduling_decision(
             check,
             environment,
@@ -324,7 +332,7 @@ class Outpost:
                 if not check_results_cache_entry:
                     return [
                         ExecutionResult(
-                            piggyback_host="NOTIMPLENTEDYET",
+                            piggyback_host=piggyback_host,
                             service_name=check.service_name,
                             service_labels=check.service_labels,
                             environment_name=environment.name,
@@ -377,7 +385,7 @@ class Outpost:
 
             return [
                 ExecutionResult(
-                    piggyback_host="NOTIMPLENTEDYET",
+                    piggyback_host=piggyback_host,
                     service_name=check.service_name,
                     service_labels=check.service_labels,
                     environment_name=environment.name,
@@ -390,7 +398,7 @@ class Outpost:
         except Exception as e:
             return [
                 ExecutionResult(
-                    piggyback_host="NOTIMPLENTEDYET",
+                    piggyback_host=piggyback_host,
                     service_name=check.service_name,
                     service_labels=check.service_labels,
                     environment_name=environment.name,
@@ -404,7 +412,7 @@ class Outpost:
         if not maybe_execution_results:
             return [
                 ExecutionResult(
-                    piggyback_host="NOTIMPLENTEDYET",
+                    piggyback_host=piggyback_host,
                     service_name=check.service_name,
                     service_labels=check.service_labels,
                     environment_name=environment.name,
