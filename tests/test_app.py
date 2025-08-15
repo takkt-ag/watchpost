@@ -257,7 +257,7 @@ def test_run_checks_once_with_real_check():
         all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
 
         # Verify the basic structure
-        expected_host = "test-service-test-env-NOTIMPLEMENTEDYET"
+        expected_host = "test-service-test-env"
         assert expected_host.encode() in all_data
 
         # Decode the base64 data using the utility function

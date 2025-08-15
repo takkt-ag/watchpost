@@ -38,6 +38,7 @@ from .datasource import (
 from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
+from .hostname import HostnameInput, to_strategy
 from .result import CheckState, ExecutionResult
 from .scheduling_strategy import (
     DetectImpossibleCombinationStrategy,
@@ -63,10 +64,14 @@ class Outpost:
         executor: CheckExecutor[list[ExecutionResult]] | None = None,
         check_cache_storage: Storage | None = None,
         default_scheduling_strategies: list[SchedulingStrategy] | None = None,
+        hostname: HostnameInput | None = None,
+        hostname_strict: bool = False,
     ):
         self.checks = checks
         self.execution_environment = execution_environment
         self.version = version
+        self.hostname_strategy = to_strategy(hostname)
+        self._hostname_strict = hostname_strict
         if executor:
             self.executor = executor
         else:

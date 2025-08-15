@@ -120,7 +120,7 @@ class CheckResult:
     details: str | None = None
     name_suffix: str | None = None
     metrics: list[Metric] | None = None
-    alternative_hostname: str | None = None
+    hostname: str | None = None
 
     def __init__(
         self,
@@ -129,14 +129,14 @@ class CheckResult:
         details: Details | None = None,
         name_suffix: str | None = None,
         metrics: list[Metric] | None = None,
-        alternative_hostname: str | None = None,
+        hostname: str | None = None,
     ):
         self.check_state = check_state
         self.summary = summary
         self.details = normalize_details(details)
         self.name_suffix = name_suffix
         self.metrics = metrics
-        self.alternative_hostname = alternative_hostname
+        self.hostname = hostname
 
 
 def ok(
@@ -152,7 +152,7 @@ def ok(
         details=details,
         name_suffix=name_suffix,
         metrics=metrics,
-        alternative_hostname=alternative_hostname,
+        hostname=alternative_hostname,
     )
 
 
@@ -169,7 +169,7 @@ def warn(
         details=details,
         name_suffix=name_suffix,
         metrics=metrics,
-        alternative_hostname=alternative_hostname,
+        hostname=alternative_hostname,
     )
 
 
@@ -186,7 +186,7 @@ def crit(
         details=details,
         name_suffix=name_suffix,
         metrics=metrics,
-        alternative_hostname=alternative_hostname,
+        hostname=alternative_hostname,
     )
 
 
@@ -203,7 +203,7 @@ def unknown(
         details=details,
         name_suffix=name_suffix,
         metrics=metrics,
-        alternative_hostname=alternative_hostname,
+        hostname=alternative_hostname,
     )
 
 
