@@ -15,9 +15,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+from .hostname import HostnameInput, to_strategy
+
+
 class Environment:
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        *,
+        hostname: HostnameInput | None = None,
+    ):
         self.name = name
+        self.hostname_strategy = to_strategy(hostname)
 
     def __hash__(self) -> int:
         return hash(self.name)

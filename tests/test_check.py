@@ -27,6 +27,8 @@ from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test_env")
 OUTPOST = MagicMock(spec=Outpost)
+OUTPOST.hostname_strategy = None
+OUTPOST._hostname_strict = False
 
 
 class TestDatasource(Datasource):
@@ -88,7 +90,7 @@ def test_check_with_invocation_information():
 
 
 def test_generate_hostname():
-    """Test the generate_hostname method."""
+    """Test default hostname resolution via fallback when no strategies are set."""
 
     def check_func(test_datasource: TestDatasource):
         _ = test_datasource
@@ -103,10 +105,14 @@ def test_generate_hostname():
     )
 
     env = Environment("test_env")
-    hostname = check.generate_hostname(env)
+    results = check.run(
+        outpost=OUTPOST,
+        datasources={"test_datasource": TestDatasource()},
+        environment=env,
+    )
 
-    # Verify the hostname format
-    assert hostname == "test_service-test_env-NOTIMPLEMENTEDYET"
+    # Verify the hostname format uses default fallback
+    assert results[0].piggyback_host == "test_service-test_env"
 
 
 def test_run_with_ok_result():
@@ -142,7 +148,7 @@ def test_run_with_ok_result():
     assert results[0].service_name == "test_service"
     assert results[0].environment_name == "test_env"
     assert results[0].service_labels == {"env": "test"}
-    assert results[0].piggyback_host == "test_service-test_env-NOTIMPLEMENTEDYET"
+    assert results[0].piggyback_host == "test_service-test_env"
 
 
 def test_run_with_critical_result():
@@ -556,7 +562,7 @@ def test_decorated_function_run_method():
     assert results[0].service_name == "test_service"
     assert results[0].environment_name == "test_env"
     assert results[0].service_labels == {"env": "test"}
-    assert results[0].piggyback_host == "test_service-test_env-NOTIMPLEMENTEDYET"
+    assert results[0].piggyback_host == "test_service-test_env"
 
 
 def test_decorated_function_with_different_result_types():

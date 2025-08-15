@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from .cache import Cache, CacheEntry, Storage
 from .datasource import Datasource
 from .environment import Environment
+from .hostname import HostnameStrategy, resolve_hostname, to_strategy
 from .result import (
     CheckResult,
     ExecutionResult,
@@ -87,6 +88,7 @@ class Check:
     cache_for: timedelta | None
     invocation_information: InvocationInformation | None = None
     scheduling_strategies: list[SchedulingStrategy] | None = None
+    hostname_strategy: HostnameStrategy | None = None
 
     def __hash__(self) -> int:
         return hash(
@@ -148,9 +150,16 @@ class Check:
         )
 
         for result in normalized_results:
+            piggyback_host = resolve_hostname(
+                outpost=outpost,
+                environment=environment,
+                check=self,
+                result=result,
+                strict=outpost._hostname_strict,
+            )
             collected_results.append(
                 ExecutionResult(
-                    piggyback_host=self.generate_hostname(environment),
+                    piggyback_host=piggyback_host,
                     service_name=self.service_name,
                     service_labels=self.service_labels,
                     environment_name=environment.name,
@@ -164,9 +173,6 @@ class Check:
 
         return collected_results
 
-    def generate_hostname(self, environment: Environment) -> str:
-        return f"{self.service_name}-{environment.name}-NOTIMPLEMENTEDYET"
-
 
 def check(
     *,
@@ -174,6 +180,7 @@ def check(
     service_labels: dict[str, Any],
     environments: list[Environment],
     cache_for: timedelta | str | None,
+    hostname: str | Callable[[object], str | None] | HostnameStrategy | None = None,
 ) -> Callable[[CheckFunction], Check]:
     check_definition = get_invocation_information()
 
@@ -185,6 +192,7 @@ def check(
             environments=environments,
             cache_for=normalize_to_timedelta(cache_for),
             invocation_information=check_definition,
+            hostname_strategy=to_strategy(hostname),
         )
 
     return decorator
