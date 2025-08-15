@@ -199,7 +199,8 @@ _S = TypeVar("_S", bound=SchedulingStrategy)
 class DetectImpossibleCombinationStrategy(SchedulingStrategy):
     @staticmethod
     def _filter_strategies(
-        strategies: list[SchedulingStrategy], strategy_type: type[_S]
+        strategies: list[SchedulingStrategy],
+        strategy_type: type[_S],
     ) -> list[_S]:
         return [
             strategy for strategy in strategies if isinstance(strategy, strategy_type)
