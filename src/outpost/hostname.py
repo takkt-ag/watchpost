@@ -130,20 +130,21 @@ def to_strategy(value: HostnameInput | None) -> HostnameStrategy | None:
 def resolve_hostname(
     *,
     outpost: Outpost,
-    environment: Environment,
     check: Check,
-    result: CheckResult,
+    environment: Environment,
+    result: CheckResult | None,
     strict: bool = True,
     final_fallback: HostnameStrategy | None = None,
 ) -> str:
     # 1) Per-result override
-    try:
-        if result.hostname:
-            return result.hostname
-    except Exception:
-        pass
+    if result and result.hostname:
+        return result.hostname
 
-    ctx = HostnameContext(check=check, environment=environment, result=result)
+    ctx = HostnameContext(
+        check=check,
+        environment=environment,
+        result=result,
+    )
 
     # 2) Check-level strategy
     if check.hostname_strategy:

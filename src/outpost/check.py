@@ -152,8 +152,8 @@ class Check:
         for result in normalized_results:
             piggyback_host = resolve_hostname(
                 outpost=outpost,
-                environment=environment,
                 check=self,
+                environment=environment,
                 result=result,
                 strict=outpost._hostname_strict,
             )
