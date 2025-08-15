@@ -359,7 +359,7 @@ def normalize_check_function_result(
                 check_state=CheckState.UNKNOWN,
                 summary="CHECK CODE ERROR: no results returned",
                 details=(
-                    "The SPOTM check function returned no results. Please verify "
+                    "The outpost check function returned no results. Please verify "
                     "the code of this check if there is a circumstance in which it "
                     "does not return any results, and remediate this."
                 ),
