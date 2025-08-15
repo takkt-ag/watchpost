@@ -18,8 +18,6 @@ from __future__ import annotations
 
 from concurrent.futures import wait
 
-import pytest
-
 from outpost.app import Outpost
 from outpost.check import check
 from outpost.environment import Environment
@@ -162,7 +160,7 @@ def test_executor_errored_integration_nonblocking():
             name="failing-service",
             service_labels={"test": "true"},
             environments=[env],
-            cache_for=None,
+            cache_for="1m",
         )
         def failing_check() -> object:
             event.wait()
@@ -197,9 +195,14 @@ def test_executor_errored_integration_nonblocking():
         assert env.name in err_key
         assert err_msg == "boom"
 
-        # Next run should attempt to pick up the errored future and raise
-        with pytest.raises(ValueError, match="boom"):
-            _ = b"".join(app.run_checks())
+        # Next run should attempt to pick up the errored future and create a CRIT result
+        output2 = b"".join(app.run_checks())
+        results2 = decode_checkmk_output(output2)
+        sr2 = [r for r in results2 if r["service_name"] == "failing-service"]
+        assert len(sr2) == 1
+        assert sr2[0]["check_state"] == "CRIT"
+        assert sr2[0]["summary"] == "boom"
+        assert "ValueError: boom" in sr2[0]["details"]
 
         # After pickup, errored() must be cleared
         assert executor.errored() == {}
