@@ -22,6 +22,7 @@ from outpost.app import Outpost
 from outpost.check import check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
+from outpost.executor import BlockingCheckExecutor
 from outpost.result import CheckResult
 from outpost.scheduling_strategy import (
     DetectImpossibleCombinationStrategy,
@@ -32,8 +33,6 @@ from outpost.scheduling_strategy import (
     SchedulingDecision,
     SchedulingStrategy,
 )
-
-from .utils import BlockingCheckExecutor
 
 Monitoring = Environment("Monitoring")
 Preprod = Environment("Preprod")

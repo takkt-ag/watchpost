@@ -25,10 +25,11 @@ from outpost.cache import CacheEntry, CacheKey, InMemoryStorage
 from outpost.check import Check, check
 from outpost.datasource import Datasource, DatasourceUnavailable
 from outpost.environment import Environment
+from outpost.executor import BlockingCheckExecutor
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
 
-from .utils import BlockingCheckExecutor, decode_checkmk_output
+from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 

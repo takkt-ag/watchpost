@@ -23,9 +23,10 @@ from outpost.app import Outpost
 from outpost.check import Check, check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
+from outpost.executor import BlockingCheckExecutor
 from outpost.result import CheckResult, ExecutionResult, ok, warn
 
-from .utils import BlockingCheckExecutor, decode_checkmk_output
+from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env-async")
 
