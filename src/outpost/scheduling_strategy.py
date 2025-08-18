@@ -164,7 +164,7 @@ class MustRunInGivenExecutionEnvironmentStrategy(SchedulingStrategy):
         return SchedulingDecision.DONT_SCHEDULE
 
 
-class MustRunInCurrentExecutionEnvironmentStrategy(SchedulingStrategy):
+class MustRunInTargetEnvironmentStrategy(SchedulingStrategy):
     @override
     def schedule(
         self,
@@ -226,7 +226,7 @@ class DetectImpossibleCombinationStrategy(SchedulingStrategy):
         must_run_in_current_execution_environment = bool(
             self._filter_strategies(
                 strategies,
-                MustRunInCurrentExecutionEnvironmentStrategy,
+                MustRunInTargetEnvironmentStrategy,
             )
         )
 

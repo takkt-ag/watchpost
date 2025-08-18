@@ -27,8 +27,8 @@ from outpost.scheduling_strategy import (
     DetectImpossibleCombinationStrategy,
     InvalidCheckConfiguration,
     MustRunAgainstGivenTargetEnvironmentStrategy,
-    MustRunInCurrentExecutionEnvironmentStrategy,
     MustRunInGivenExecutionEnvironmentStrategy,
+    MustRunInTargetEnvironmentStrategy,
     SchedulingDecision,
     SchedulingStrategy,
 )
@@ -48,7 +48,7 @@ class LogSystem(Datasource):
 
 class ProductService(Datasource):
     scheduling_strategies = (
-        MustRunInCurrentExecutionEnvironmentStrategy(),
+        MustRunInTargetEnvironmentStrategy(),
         MustRunAgainstGivenTargetEnvironmentStrategy(Preprod),
     )
 
@@ -321,7 +321,7 @@ def test_invalid_exec_and_target_envs_without_intersection_but_current_required(
 
     class TargetPreprodAndCurrent(Datasource):
         scheduling_strategies = (
-            MustRunInCurrentExecutionEnvironmentStrategy(),
+            MustRunInTargetEnvironmentStrategy(),
             MustRunAgainstGivenTargetEnvironmentStrategy(Preprod),
         )
 
