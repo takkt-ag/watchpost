@@ -20,10 +20,11 @@ import contextlib
 import hashlib
 import inspect
 import io
-from collections.abc import Callable, Generator
+import typing
+from collections.abc import Awaitable, Callable, Generator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from .cache import Cache, CacheEntry, Storage
 from .datasource import Datasource
@@ -54,7 +55,7 @@ CheckFunctionResult = (
 
 _E = Environment
 _D = TypeVar("_D", bound=Datasource)
-_R = CheckFunctionResult
+_R = CheckFunctionResult | Awaitable[CheckFunctionResult]
 
 CheckFunction = (
     Callable[[_D], _R]
@@ -110,6 +111,16 @@ class Check:
     def signature(self) -> inspect.Signature:
         return self._check_function_signature  # type: ignore[attr-defined]
 
+    @property
+    def type_hints(self) -> dict[str, Any]:
+        return typing.get_type_hints(self.check_function, include_extras=True)
+
+    @property
+    def is_async(self) -> bool:
+        return inspect.iscoroutine(self.check_function) or inspect.iscoroutinefunction(
+            self.check_function
+        )
+
     def __post_init__(self) -> None:
         object.__setattr__(
             self,
@@ -117,38 +128,37 @@ class Check:
             inspect.signature(self.check_function),
         )
 
-    def __call__(self, *args, **kwargs) -> CheckFunctionResult:  # type: ignore[no-untyped-def]
-        return self.check_function(*args, **kwargs)
-
-    def run(
+    def _run_prepare_kwargs(
         self,
         *,
-        outpost: Outpost,
         environment: Environment,
         datasources: dict[str, Datasource],
-    ) -> list[ExecutionResult]:
+    ) -> dict[str, Environment | Datasource]:
         kwargs: dict[str, Environment | Datasource] = {
             **datasources,
         }
 
-        collected_results = []
         if "environment" in self._check_function_signature.parameters:  # type: ignore[attr-defined]
             kwargs["environment"] = environment
 
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        with (
-            contextlib.redirect_stdout(stdout),
-            contextlib.redirect_stderr(stderr),
-        ):
-            with outpost.app_context():
-                initial_result = self.check_function(**kwargs)  # type: ignore[call-arg]
+        return kwargs
+
+    def _normalize_and_materialize_results(
+        self,
+        *,
+        outpost: Outpost,
+        environment: Environment,
+        initial_result: CheckFunctionResult,
+        stdout: io.StringIO,
+        stderr: io.StringIO,
+    ) -> list[ExecutionResult]:
         normalized_results = normalize_check_function_result(
             initial_result,
             stdout,
             stderr,
         )
 
+        collected_results = []
         for result in normalized_results:
             updated_service_name = self.service_name
             if result.name_suffix:
@@ -176,6 +186,78 @@ class Check:
             )
 
         return collected_results
+
+    def run_sync(
+        self,
+        *,
+        outpost: Outpost,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult]:
+        if self.is_async:
+            raise TypeError(
+                "Check is not sync but async, call and await `run_async` instead"
+            )
+
+        kwargs = self._run_prepare_kwargs(
+            environment=environment,
+            datasources=datasources,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
+            with outpost.app_context():
+                initial_result = cast(
+                    CheckFunctionResult,
+                    self.check_function(**kwargs),  # type: ignore[call-arg]
+                )
+
+        return self._normalize_and_materialize_results(
+            outpost=outpost,
+            environment=environment,
+            initial_result=initial_result,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    async def run_async(
+        self,
+        *,
+        outpost: Outpost,
+        environment: Environment,
+        datasources: dict[str, Datasource],
+    ) -> list[ExecutionResult]:
+        if not self.is_async:
+            raise TypeError(
+                "Check is not async but sync, call `run_sync` without await instead"
+            )
+
+        kwargs = self._run_prepare_kwargs(
+            environment=environment,
+            datasources=datasources,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
+            with outpost.app_context():
+                initial_result = await cast(
+                    Awaitable[CheckFunctionResult],
+                    self.check_function(**kwargs),  # type: ignore[call-arg]
+                )
+
+        return self._normalize_and_materialize_results(
+            outpost=outpost,
+            environment=environment,
+            initial_result=initial_result,
+            stdout=stdout,
+            stderr=stderr,
+        )
 
 
 def check(

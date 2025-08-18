@@ -16,17 +16,38 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
+import threading
 from collections import deque
-from collections.abc import Callable, Hashable
+from collections.abc import Awaitable, Callable, Hashable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from types import TracebackType
 
 logger = logging.getLogger(f"{__package__}.{__name__}")
+
+
+class AsyncioLoopThread(threading.Thread):
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self.loop_started = threading.Event()
+
+    def run(self) -> None:
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        self.loop_started.set()
+        self.loop.run_forever()
+
+    def stop(self) -> None:
+        if self.loop:
+            self.loop.call_soon_threadsafe(self.loop.stop)
 
 
 @dataclass
@@ -50,6 +71,16 @@ class CheckExecutor[T]:
     ):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self._state: dict[Hashable, _KeyState[T]] = {}
+        self._asyncio_loop_thread: AsyncioLoopThread | None = None
+
+    @property
+    def asyncio_loop(self) -> asyncio.AbstractEventLoop:
+        if not self._asyncio_loop_thread:
+            self._asyncio_loop_thread = AsyncioLoopThread(daemon=True)
+            self._asyncio_loop_thread.start()
+            self._asyncio_loop_thread.loop_started.wait()
+
+        return cast(asyncio.AbstractEventLoop, self._asyncio_loop_thread.loop)
 
     def __enter__(self) -> CheckExecutor[T]:
         return self
@@ -63,12 +94,14 @@ class CheckExecutor[T]:
         self.shutdown(wait=True)
 
     def shutdown(self, wait: bool = False) -> None:
+        if self._asyncio_loop_thread:
+            self._asyncio_loop_thread.stop()
         self.executor.shutdown(wait=wait)
 
     def submit[**P](  # type: ignore[valid-type]
         self,
         key: Hashable,
-        func: Callable[P, T],
+        func: Callable[P, T | Awaitable[T]],
         *args: P.args,
         resubmit: bool = False,
         **kwargs: P.kwargs,
@@ -81,7 +114,13 @@ class CheckExecutor[T]:
             return key_state.active_futures[0]
 
         logger.debug("Submitting future for key %s", key)
-        future = self.executor.submit(func, *args, **kwargs)
+        if inspect.iscoroutinefunction(func) or inspect.iscoroutinefunction(func):
+            future = asyncio.run_coroutine_threadsafe(
+                func(*args, **kwargs),  # type: ignore[invalid-argument-type]
+                self.asyncio_loop,
+            )
+        else:
+            future = self.executor.submit(func, *args, **kwargs)
         key_state.active_futures.append(future)
         future.add_done_callback(lambda future: self._done_callback(key, future))
         return future

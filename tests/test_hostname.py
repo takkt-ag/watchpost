@@ -72,7 +72,7 @@ def test_precedence_result_overrides_check_env_outpost():
 
     app = _mk_outpost(hostname="op-{service_name}")
 
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -96,7 +96,7 @@ def test_precedence_check_over_env_and_outpost():
         return ok("x")
 
     app = _mk_outpost(hostname="op-{service_name}")
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -119,7 +119,7 @@ def test_precedence_env_over_outpost():
         return ok("x")
 
     app = _mk_outpost(hostname="op-{service_name}")
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -142,7 +142,7 @@ def test_outpost_level_strategy_used_when_no_others():
         return ok("x")
 
     app = _mk_outpost(hostname="{service_name}-{environment.name}")
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -166,7 +166,7 @@ def test_template_fields_available():
         return ok("x")
 
     app = _mk_outpost()
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -192,7 +192,7 @@ def test_multi_result_per_result_overrides():
         ]
 
     app = _mk_outpost()
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -225,7 +225,7 @@ def test_validation_and_strict_mode_raises_when_unresolved():
     app = _mk_outpost(strict=True)
 
     with pytest.raises(HostnameResolutionError):
-        _ = my_check.run(
+        _ = my_check.run_sync(
             outpost=app,
             environment=env,
             datasources={"test": TestDatasource()},
@@ -252,7 +252,7 @@ def test_non_strict_falls_back_when_unresolved():
         return ok("x")
 
     app = _mk_outpost(strict=False)
-    results = my_check.run(
+    results = my_check.run_sync(
         outpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
@@ -283,7 +283,7 @@ def test_exception_in_strategy_is_wrapped():
 
     app = _mk_outpost(strict=False)
     with pytest.raises(HostnameResolutionError) as ei:
-        _ = my_check.run(
+        _ = my_check.run_sync(
             outpost=app,
             environment=env,
             datasources={"test": TestDatasource()},
