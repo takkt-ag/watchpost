@@ -215,27 +215,25 @@ class Outpost:
             return resolved_datasources
 
         datasources = {}
-        for parameter in check.signature.parameters.values():
-            if get_origin(parameter.annotation) is Annotated:
-                type_key, *args = get_args(parameter.annotation)
+        for name, parameter in check.type_hints.items():
+            if get_origin(parameter) is Annotated:
+                type_key, *args = get_args(parameter)
                 annotation_class = args[0]
 
                 if isinstance(annotation_class, FromFactory):
-                    datasources[parameter.name] = self._resolve_datasource_from_factory(
+                    datasources[name] = self._resolve_datasource_from_factory(
                         annotation_class
                     )
                     continue
 
                 raise ValueError(
-                    f"Unsupported annotation {parameter.annotation}. "
+                    f"Unsupported annotation {parameter}. "
                     f"When using Annotated, the second argument must be an instance of FromFactory. "
                     f"Example: Annotated[YourDatasourceType, FromFactory(YourFactoryType, 'arg1', arg2=value)]"
                 )
 
-            if issubclass(parameter.annotation, Datasource):
-                datasources[parameter.name] = self._resolve_datasource(
-                    parameter.annotation
-                )
+            if issubclass(parameter, Datasource):
+                datasources[name] = self._resolve_datasource(parameter)
                 continue
 
         self._resolved_datasources[check] = datasources
@@ -361,7 +359,7 @@ class Outpost:
         if should_update_cache or not can_reuse_results:
             self.executor.submit(
                 key=executor_key,
-                func=check.run,
+                func=check.run_async if check.is_async else check.run_sync,
                 resubmit=check.cache_for is None,
                 outpost=self,
                 environment=environment,

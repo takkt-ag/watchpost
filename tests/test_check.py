@@ -105,7 +105,7 @@ def test_generate_hostname():
     )
 
     env = Environment("test_env")
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={"test_datasource": TestDatasource()},
         environment=env,
@@ -133,7 +133,7 @@ def test_run_with_ok_result():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -169,7 +169,7 @@ def test_run_with_critical_result():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -201,7 +201,7 @@ def test_run_with_warning_result():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -233,7 +233,7 @@ def test_run_with_unknown_result():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -268,7 +268,7 @@ def test_run_with_multiple_environments():
         cache_for=None,
     )
 
-    results1 = check.run(
+    results1 = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -279,7 +279,7 @@ def test_run_with_multiple_environments():
     assert results1[0].environment_name == "env1"
     assert results1[0].summary == "Checked environment env1"
 
-    results2 = check.run(
+    results2 = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -290,7 +290,7 @@ def test_run_with_multiple_environments():
     assert results2[0].environment_name == "env2"
     assert results2[0].summary == "Checked environment env2"
 
-    results3 = check.run(
+    results3 = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -324,7 +324,7 @@ def test_run_with_multiple_datasources():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -357,7 +357,7 @@ def test_run_with_environment_parameter():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -392,7 +392,7 @@ def test_run_captures_stdout_stderr():
         cache_for=None,
     )
 
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -432,7 +432,7 @@ def test_run_with_list_of_results():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -470,7 +470,7 @@ def test_run_with_generator_of_results():
     )
 
     # Run the check
-    results = check.run(
+    results = check.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -512,27 +512,6 @@ def test_check_decorator_returns_check_instance():
     assert decorated_func.environments[0].name == "test_env"
 
 
-def test_decorated_function_can_be_called_directly():
-    """Test that a decorated function can be called directly."""
-
-    @check(
-        name="test_service",
-        service_labels={"env": "test"},
-        environments=[Environment("test_env")],
-        cache_for=None,
-    )
-    def decorated_func(test_datasource: TestDatasource):
-        _ = test_datasource
-        return ok("Test passed")
-
-    # Call the decorated function directly
-    result = decorated_func(TestDatasource())
-
-    # Verify the result
-    assert result.check_state == CheckState.OK
-    assert result.summary == "Test passed"
-
-
 def test_decorated_function_run_method():
     """Test the run method of a decorated function."""
 
@@ -547,7 +526,7 @@ def test_decorated_function_run_method():
         return ok("Test passed")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -613,28 +592,28 @@ def test_decorated_function_with_different_result_types():
         return unknown("Status is unknown")
 
     # Run the checks
-    ok_results = ok_func.run(
+    ok_results = ok_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
-    warn_results = warn_func.run(
+    warn_results = warn_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
-    crit_results = crit_func.run(
+    crit_results = crit_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
-    unknown_results = unknown_func.run(
+    unknown_results = unknown_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -680,7 +659,7 @@ def test_decorated_function_with_multiple_environments():
         _ = test_datasource
         return ok(f"Checked environment {environment.name}")
 
-    results1 = decorated_func.run(
+    results1 = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -691,7 +670,7 @@ def test_decorated_function_with_multiple_environments():
     assert results1[0].environment_name == "env1"
     assert results1[0].summary == "Checked environment env1"
 
-    results2 = decorated_func.run(
+    results2 = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -702,7 +681,7 @@ def test_decorated_function_with_multiple_environments():
     assert results2[0].environment_name == "env2"
     assert results2[0].summary == "Checked environment env2"
 
-    results3 = decorated_func.run(
+    results3 = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -732,7 +711,7 @@ def test_decorated_function_with_multiple_datasources():
         return ok("Multiple datasources used")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -761,7 +740,7 @@ def test_decorated_function_with_environment_parameter():
         return ok(f"Checked environment: {environment.name}")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -793,7 +772,7 @@ def test_decorated_function_captures_stdout_stderr():
         return ok("Check completed")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -829,7 +808,7 @@ def test_decorated_function_with_list_of_results():
         ]
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -863,7 +842,7 @@ def test_decorated_function_with_generator_of_results():
         yield crit("Third check failed")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -918,7 +897,7 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
         return ok("Test passed")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),
@@ -948,7 +927,7 @@ def test_check_decorator_invocation_information_in_checkmk_output():
         return ok("Test passed")
 
     # Run the check
-    results = decorated_func.run(
+    results = decorated_func.run_sync(
         outpost=OUTPOST,
         datasources={
             "test_datasource": TestDatasource(),

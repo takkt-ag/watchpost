@@ -58,8 +58,28 @@ def dummy_check_function(
     return ok("This is a check result.")
 
 
+@check(
+    name="async dummy",
+    service_labels={"foo": "bar"},
+    environments=[Environment("test")],
+    cache_for=None,
+)
+async def async_dummy_check_function(
+    dummy: DummyDatasource,
+    annotated: Annotated[MockBoto3Client, FromFactory(Boto3, "ecs")],
+) -> CheckResult:
+    print("This is an async running check.")
+    print(f"Current app: {current_app}")
+    print(f"Dummy: {dummy}")
+    print(f"Annotated: {annotated}")
+    return ok("This is an async check result.")
+
+
 app = Outpost(
-    checks=[dummy_check_function],
+    checks=[
+        dummy_check_function,
+        async_dummy_check_function,
+    ],
     execution_environment=Environment("test"),
 )
 

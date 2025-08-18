@@ -44,7 +44,9 @@ def test_service_name_is_appended_with_name_suffix_for_simple_result():
     )
 
     env = Environment("env")
-    results = check.run(outpost=_mk_outpost_mock(), environment=env, datasources={})
+    results = check.run_sync(
+        outpost=_mk_outpost_mock(), environment=env, datasources={}
+    )
     assert len(results) == 1
     assert results[0].service_name == "svc:db"
 
@@ -63,7 +65,9 @@ def test_service_name_is_appended_with_name_suffix_for_ongoing_result():
     )
 
     env = Environment("env")
-    results = check.run(outpost=_mk_outpost_mock(), environment=env, datasources={})
+    results = check.run_sync(
+        outpost=_mk_outpost_mock(), environment=env, datasources={}
+    )
     assert len(results) == 1
     assert results[0].service_name == "svc:part"
 
@@ -84,7 +88,9 @@ def test_multiple_results_have_individual_suffixes():
     )
 
     env = Environment("env")
-    results = check.run(outpost=_mk_outpost_mock(), environment=env, datasources={})
+    results = check.run_sync(
+        outpost=_mk_outpost_mock(), environment=env, datasources={}
+    )
     assert len(results) == 2
     service_names = sorted(r.service_name for r in results)
     assert service_names == ["svc:a", "svc:b"]

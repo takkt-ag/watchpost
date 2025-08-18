@@ -224,7 +224,7 @@ def test_check_with_factory_datasource() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Run the check
-    results = test_check.run(
+    results = test_check.run_sync(
         outpost=app,
         datasources={
             "datasource": app._resolve_datasource_from_factory(
@@ -272,7 +272,7 @@ def test_check_with_multiple_factory_datasources() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Run the check
-    results = test_check.run(
+    results = test_check.run_sync(
         outpost=app,
         datasources={
             "datasource1": app._resolve_datasource_from_factory(
@@ -323,7 +323,7 @@ def test_check_with_mixed_datasources() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Run the check
-    results = test_check.run(
+    results = test_check.run_sync(
         outpost=app,
         datasources={
             "regular": TestDatasource(),

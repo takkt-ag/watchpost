@@ -103,6 +103,7 @@ def test_run_checks_once():
     mock_check.name = "Test Check"
     mock_check.environments = [TEST_ENVIRONMENT]
     mock_check.cache_for = None
+    mock_check.is_async = False
     execution_result = ExecutionResult(
         piggyback_host="test-host",
         service_name="test-service",
@@ -111,7 +112,7 @@ def test_run_checks_once():
         check_state=CheckState.OK,
         summary="Test summary",
     )
-    mock_check.run.return_value = [execution_result]
+    mock_check.run_sync.return_value = [execution_result]
 
     # Initialize the Outpost object
     app = Outpost(
@@ -126,7 +127,7 @@ def test_run_checks_once():
         app.run_checks_once()
 
         # Verify that the check was run
-        mock_check.run.assert_called_once()
+        mock_check.run_sync.assert_called_once()
 
         # Verify that sys.stdout.buffer.write was called with the expected data
         assert mock_write.call_count > 0
@@ -151,6 +152,7 @@ def test_run_checks_once_with_multiple_checks():
     mock_check1.name = "Test Check 1"
     mock_check1.environments = [TEST_ENVIRONMENT]
     mock_check1.cache_for = None
+    mock_check1.is_async = False
     execution_result1 = ExecutionResult(
         piggyback_host="test-host-1",
         service_name="test-service-1",
@@ -159,12 +161,13 @@ def test_run_checks_once_with_multiple_checks():
         check_state=CheckState.OK,
         summary="Test summary 1",
     )
-    mock_check1.run.return_value = [execution_result1]
+    mock_check1.run_sync.return_value = [execution_result1]
 
     mock_check2 = MagicMock(spec=Check)
     mock_check2.name = "Test Check 2"
     mock_check2.environments = [TEST_ENVIRONMENT]
     mock_check2.cache_for = None
+    mock_check2.is_async = False
     execution_result2 = ExecutionResult(
         piggyback_host="test-host-2",
         service_name="test-service-2",
@@ -173,7 +176,7 @@ def test_run_checks_once_with_multiple_checks():
         check_state=CheckState.WARN,
         summary="Test summary 2",
     )
-    mock_check2.run.return_value = [execution_result2]
+    mock_check2.run_sync.return_value = [execution_result2]
 
     # Initialize the Outpost object with both checks
     app = Outpost(
@@ -188,8 +191,8 @@ def test_run_checks_once_with_multiple_checks():
         app.run_checks_once()
 
         # Verify that both checks were run
-        mock_check1.run.assert_called_once()
-        mock_check2.run.assert_called_once()
+        mock_check1.run_sync.assert_called_once()
+        mock_check2.run_sync.assert_called_once()
 
         # Collect all the data written to stdout
         all_data = b"".join(call_args[0][0] for call_args in mock_write.call_args_list)
