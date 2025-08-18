@@ -81,10 +81,12 @@ class TestDiskStorage:
             disk_storage = DiskStorage(tmpdir)
             cache = Cache(disk_storage)
 
-            cache.store("key", "value")
+            stored_cache_entry = cache.store("key", "value")
             cache_entry = cache.get("key")
 
             assert cache_entry is not None
+            assert stored_cache_entry is not None
+            assert cache_entry == stored_cache_entry
             assert cache_entry.cache_key.key == "key"
             assert cache_entry.cache_key.package == __package__
             assert cache_entry.value == "value"

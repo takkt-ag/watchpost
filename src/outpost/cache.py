@@ -395,7 +395,7 @@ class Cache:
         *,
         package: str | None = None,
         ttl: timedelta | None = None,
-    ) -> None:
+    ) -> CacheEntry[T]:
         """
         Store a value in the cache.
 
@@ -408,7 +408,7 @@ class Cache:
                         package of the caller is used.
         :param ttl: The time-to-live for the cache entry. If not provided, the entry
                     will never expire.
-        :return: None
+        :return: The cache entry that was stored.
         """
 
         cache_entry = CacheEntry(
@@ -422,6 +422,8 @@ class Cache:
         )
 
         self.storage.store(cache_entry)
+
+        return cache_entry
 
     def memoize[R, **P](
         self,
