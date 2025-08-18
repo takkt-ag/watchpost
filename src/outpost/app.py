@@ -21,6 +21,7 @@ import sys
 import traceback
 from collections.abc import Generator
 from contextlib import contextmanager
+from types import ModuleType
 from typing import Annotated, Any, TypeVar, assert_never, get_args, get_origin
 
 from starlette.applications import Starlette
@@ -35,6 +36,7 @@ from .datasource import (
     DatasourceUnavailable,
     FromFactory,
 )
+from .discover_checks import discover_checks
 from .environment import Environment
 from .executor import CheckExecutor
 from .globals import _cv
@@ -57,7 +59,7 @@ class Outpost:
     def __init__(
         self,
         *,
-        checks: list[Check],
+        checks: list[Check | ModuleType],
         execution_environment: Environment,
         version: str = "unknown",
         max_workers: int | None = None,
@@ -67,7 +69,19 @@ class Outpost:
         hostname: HostnameInput | None = None,
         hostname_strict: bool = False,
     ):
-        self.checks = checks
+        self.checks: list[Check] = []
+        for check_or_module in checks:
+            if isinstance(check_or_module, ModuleType):
+                self.checks.extend(
+                    discover_checks(
+                        module=check_or_module,
+                        recursive=True,
+                        raise_on_import_error=True,
+                    )
+                )
+            else:
+                self.checks.append(check_or_module)
+
         self.execution_environment = execution_environment
         self.version = version
         self.hostname_strategy = to_strategy(hostname)
