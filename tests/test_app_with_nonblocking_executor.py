@@ -17,12 +17,14 @@
 from __future__ import annotations
 
 from concurrent.futures import wait
+from datetime import UTC, datetime, timedelta
 
 from outpost.app import Outpost
+from outpost.cache import CacheEntry, CacheKey, InMemoryStorage
 from outpost.check import check
 from outpost.environment import Environment
 from outpost.executor import CheckExecutor
-from outpost.result import ok
+from outpost.result import CheckState, ExecutionResult, ok
 
 from .utils import decode_checkmk_output, with_event
 
@@ -206,3 +208,133 @@ def test_executor_errored_integration_nonblocking():
 
         # After pickup, errored() must be cleared
         assert executor.errored() == {}
+
+
+def _prepare_expired_cache_entry(
+    storage,
+    key: str,
+    value: list[ExecutionResult],
+) -> None:
+    entry = CacheEntry[list[ExecutionResult]](
+        cache_key=CacheKey(key=key, package="outpost"),
+        value=value,
+        added_at=datetime.now(tz=UTC) - timedelta(minutes=5),
+        ttl=timedelta(seconds=1),
+    )
+    storage.store(entry)
+
+
+def test_async_uses_expired_cached_results_when_available_with_cache_for():
+    # Arrange
+    env = Environment("env-nonblocking")
+    outpost_env = Environment("outpost-env")
+
+    storage = InMemoryStorage()
+
+    with (
+        CheckExecutor(max_workers=1) as executor,
+        with_event() as event,
+    ):
+
+        @check(
+            name="nonblocking-service",
+            service_labels={"test": "true"},
+            environments=[env],
+            cache_for="1s",  # cached entries are normally short-lived
+        )
+        def my_check() -> object:
+            event.wait()
+            return ok("Live result")
+
+        # Pre-populate an expired cached result for this check/environment key
+        cache_key = f"{my_check.name}:{env.name}"
+        cached_results = [
+            ExecutionResult(
+                piggyback_host="",
+                service_name="nonblocking-service",
+                service_labels={"test": "true"},
+                environment_name=env.name,
+                check_state=CheckState.OK,
+                summary="Cached OK",
+            )
+        ]
+        _prepare_expired_cache_entry(storage, cache_key, cached_results)
+
+        app = Outpost(
+            checks=[my_check],
+            execution_environment=outpost_env,
+            executor=executor,
+            version="test",
+            check_cache_storage=storage,
+        )
+
+        # Act: First run while event is not set
+        output = b"".join(app.run_checks())
+        results = decode_checkmk_output(output)
+
+        # Assert: we should receive the cached result (OK, summary "Cached OK")
+        service_results = [
+            r for r in results if r["service_name"] == "nonblocking-service"
+        ]
+        assert len(service_results) == 1
+        assert service_results[0]["environment"] == env.name
+        assert service_results[0]["check_state"] == "OK"
+        assert service_results[0]["summary"] == "Cached OK"
+
+
+def test_async_uses_expired_cached_results_when_available_with_cache_for_none():
+    # Arrange
+    env = Environment("env-nonblocking")
+    outpost_env = Environment("outpost-env")
+
+    storage = InMemoryStorage()
+
+    with (
+        CheckExecutor(max_workers=1) as executor,
+        with_event() as event,
+    ):
+
+        @check(
+            name="nonblocking-service",
+            service_labels={"test": "true"},
+            environments=[env],
+            cache_for=None,  # always resubmit, but should still honor persistent cached results
+        )
+        def my_check() -> object:
+            event.wait()
+            return ok("Live result")
+
+        # Pre-populate an expired cached result for this check/environment key
+        cache_key = f"{my_check.name}:{env.name}"
+        cached_results = [
+            ExecutionResult(
+                piggyback_host="",
+                service_name="nonblocking-service",
+                service_labels={"test": "true"},
+                environment_name=env.name,
+                check_state=CheckState.OK,
+                summary="Cached OK",
+            )
+        ]
+        _prepare_expired_cache_entry(storage, cache_key, cached_results)
+
+        app = Outpost(
+            checks=[my_check],
+            execution_environment=outpost_env,
+            executor=executor,
+            version="test",
+            check_cache_storage=storage,
+        )
+
+        # Act: First run while event is not set
+        output = b"".join(app.run_checks())
+        results = decode_checkmk_output(output)
+
+        # Assert: we should receive the cached result (OK, summary "Cached OK")
+        service_results = [
+            r for r in results if r["service_name"] == "nonblocking-service"
+        ]
+        assert len(service_results) == 1
+        assert service_results[0]["environment"] == env.name
+        assert service_results[0]["check_state"] == "OK"
+        assert service_results[0]["summary"] == "Cached OK"

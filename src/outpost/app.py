@@ -373,6 +373,17 @@ class Outpost:
 
         try:
             maybe_execution_results = self.executor.result(key=executor_key)
+
+            # If the check is still running asynchronously but we did have a set
+            # of results cached, we do want to fall back to this cache while it
+            # is still available. This ensures that checks that are marked
+            # `cache_for=None` that do have a cached result in a persistent
+            # cache (if used) are not ignored. It also makes sure that any check
+            # that has a `cache_for` specified does not return "check is running
+            # asynchronously" in the short time period where the cache has
+            # expired and the check was just submitted.
+            if check_results_cache_entry:
+                return check_results_cache_entry.value
         except DatasourceUnavailable as e:
             additional_details = f"\n\n{e!s}\n" + "".join(traceback.format_exception(e))
             if check_results_cache_entry and check_results_cache_entry.value:
