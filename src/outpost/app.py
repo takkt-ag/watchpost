@@ -452,24 +452,27 @@ class Outpost:
         )
         return maybe_execution_results
 
+    def run_check(self, check: Check) -> Generator[ExecutionResult]:
+        with self.app_context():
+            datasources = self._resolve_datasources(check)
+            for environment in check.environments:
+                execution_results = self._run_check(
+                    check=check,
+                    environment=environment,
+                    datasources=datasources,
+                )
+
+                if not execution_results:
+                    continue
+                yield from execution_results
+
     def run_checks(self) -> Generator[bytes]:
         with self.app_context():
             yield from self._generate_checkmk_agent_output()
 
             for check in self.checks:
-                datasources = self._resolve_datasources(check)
-                for environment in check.environments:
-                    execution_results = self._run_check(
-                        check=check,
-                        environment=environment,
-                        datasources=datasources,
-                    )
-
-                    if not execution_results:
-                        continue
-
-                    for execution_result in execution_results:
-                        yield from execution_result.generate_checkmk_output()
+                for execution_result in self.run_check(check):
+                    yield from execution_result.generate_checkmk_output()
 
             yield from self._generate_synthetic_result_outputs()
 
