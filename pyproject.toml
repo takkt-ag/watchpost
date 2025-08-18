@@ -14,6 +14,11 @@ dependencies = [
     "timelength>=3.0.2",
 ]
 
+[project.optional-dependencies]
+redis = [
+    "redis>=6.4.0",
+]
+
 [project.scripts]
 outpost = "outpost:main"
 
@@ -31,9 +36,6 @@ dev = [
     "ruff>=0.12.7",
     "testcontainers[redis]>=4.12.0",
     "ty>=0.0.1a17",
-]
-redis = [
-    "redis>=6.4.0",
 ]
 
 [tool.licensecheck]
