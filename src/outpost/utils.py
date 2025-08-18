@@ -51,11 +51,23 @@ def get_invocation_information() -> InvocationInformation | None:
 
     if not outpost.__file__ or not relevant_module.__file__:
         return None
+
+    # FIXME: determining the root_directory will need rework. The outpost
+    #        package might not be relative to the user's project root at all,
+    #        always resulting in an absolute path. We should either just go for
+    #        the absolute path here regardless, or allow the user to provide a
+    #        root directory to calculate the relative path from.
     root_directory = Path(outpost.__file__).parent.parent.parent
+
     relevant_module_path = Path(relevant_module.__file__)
 
+    try:
+        relative_path = relevant_module_path.relative_to(root_directory)
+    except ValueError:
+        return None
+
     return InvocationInformation(
-        relative_path=str(relevant_module_path.relative_to(root_directory)),
+        relative_path=str(relative_path),
         line_number=relevant_frame.f_lineno,
     )
 

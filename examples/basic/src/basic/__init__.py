@@ -22,6 +22,8 @@ from outpost.datasource import Datasource, DatasourceFactory, FromFactory
 from outpost.environment import Environment
 from outpost.result import CheckResult, ok
 
+from . import checks
+
 
 class DummyDatasource(Datasource):
     scheduling_strategies = ()
@@ -77,8 +79,12 @@ async def async_dummy_check_function(
 
 app = Outpost(
     checks=[
+        # Direct reference to a synchronous check function
         dummy_check_function,
+        # Direct reference to an asynchronous check function
         async_dummy_check_function,
+        # Automatically recursively discover checks (sync and async) in a module
+        checks,
     ],
     execution_environment=Environment("test"),
 )
