@@ -55,8 +55,8 @@ pre-push:
     group:
       parallel: true
       jobs:
-      - name: External license check
-        run: uv run licensecheck --zero
+      - name: Third-party license check
+        run: ./.tools/check-third-party-licenses.sh
       - name: License comments
         run: ./.tools/check-license-comments.sh
   - name: pytest

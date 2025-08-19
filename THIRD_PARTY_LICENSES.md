@@ -21,6 +21,7 @@ Find a list of packages below
 |✔|cattrs|
 |✔|certifi|
 |✔|charset-normalizer|
+|✔|click|
 |✔|docker|
 |✔|fhconfparser|
 |✔|h11|
@@ -109,6 +110,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: MIT
+- Compatible: True
+
+### click-8.2.1
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: BSD-3-CLAUSE
 - Compatible: True
 
 ### docker-7.1.0

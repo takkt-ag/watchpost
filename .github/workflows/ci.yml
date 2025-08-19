@@ -31,24 +31,14 @@ jobs:
     - name: Show dependency tree
       run: uv tree
     - name: Verify licenses are allowed
-      run: uv run licensecheck --zero
+      run: .tools/check-third-party-licenses.sh
     - name: Generate up-to-date `THIRD_PARTY_LICENSES.md`
-      run: uv run licensecheck --format markdown | grep -vF 'Size:' > ./THIRD_PARTY_LICENSES.updated.md
+      run: .tools/show-third-party-licenses.sh > ./THIRD_PARTY_LICENSES.md
     - name: Verify `THIRD_PARTY_LICENSES.md` is up-to-date
       run: |
-        # For a reason we have not been able to figure out, the output of
-        # licensecheck in GitHub Actions seems to not include primary
-        # dependencies of the project. Dependencies in other groups show up just
-        # fine, just not in the main ones..?
-        # This is a dirty hack to work around that in our comparisons.
-        diff -u <(\
-          grep -vF '|starlette|' ./THIRD_PARTY_LICENSES.md \
-          | sed -e '/starlette-0.47.2/,+6d' \
-          | grep -vF '|timelength|' \
-          | sed -e '/timelength-3.0.2/,+6d' \
-        ) ./THIRD_PARTY_LICENSES.updated.md
+        git diff --exit-code ./THIRD_PARTY_LICENSES.md
         if [ $? -ne 0 ]; then
-          echo "THIRD_PARTY_LICENSES.md is out of date. Please run 'uv run licensecheck --format markdown | grep -vF 'Size:' > ./THIRD_PARTY_LICENSES.md' locally, compare what has changed and commit the changes."
+          echo "THIRD_PARTY_LICENSES.md is out of date. Please run '.tools/show-third-party-licenses.sh > ./THIRD_PARTY_LICENSES.md' locally, compare what has changed and commit the changes."
           exit 1
         fi
 
