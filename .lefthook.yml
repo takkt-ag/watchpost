@@ -59,3 +59,9 @@ pre-push:
         run: uv run licensecheck --zero
       - name: License comments
         run: ./.tools/check-license-comments.sh
+  - name: pytest
+    tags:
+    - python
+    - test
+    glob: "*.py"
+    run: uv run pytest
