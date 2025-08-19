@@ -18,6 +18,8 @@ from collections.abc import Iterable
 
 from rich.live import Live
 
+from outpost.executor import BlockingCheckExecutor, CheckExecutor
+
 try:
     import click
     from rich.console import Console
@@ -82,6 +84,16 @@ def list_checks(app: Outpost) -> None:
 
 @cli.command()
 @click.option(
+    "--asynchronous-check-execution/--synchronous-check-execution",
+    is_flag=True,
+    default=False,
+    help=(
+        "Whether to run checks asynchronously or synchronously (default). If "
+        "you run them asynchronously, almost all checks will return in the "
+        "`UNKNOWN` state informing you they are running asynchronously."
+    ),
+)
+@click.option(
     "--filter-prefix",
     default=None,
     help="Filter which checks to run by prefix against their name (as shown by list-checks)",
@@ -94,9 +106,14 @@ def list_checks(app: Outpost) -> None:
 @click.pass_obj
 def run_checks(
     app: Outpost,
+    asynchronous_check_execution: bool = False,
     filter_prefix: str | None = None,
     filter_contains: str | None = None,
 ) -> None:
+    custom_executor: CheckExecutor[list[ExecutionResult]] | None = None
+    if not asynchronous_check_execution:
+        custom_executor = BlockingCheckExecutor()
+
     def _run() -> Iterable[ExecutionResult]:
         for check in app.checks:
             if filter_prefix and not check.name.startswith(filter_prefix):
@@ -104,7 +121,10 @@ def run_checks(
             if filter_contains and filter_contains not in check.name:
                 continue
 
-            yield from app.run_check(check)
+            yield from app.run_check(
+                check,
+                custom_executor=custom_executor,
+            )
 
     display_results_table(_run())
 
