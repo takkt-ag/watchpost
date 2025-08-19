@@ -25,6 +25,7 @@ from outpost.app import Outpost
 from outpost.check import check
 from outpost.datasource import Datasource
 from outpost.environment import Environment
+from outpost.executor import BlockingCheckExecutor
 from outpost.hostname import (
     CompositeStrategy,
     FunctionStrategy,
@@ -38,8 +39,6 @@ from outpost.hostname import (
     to_strategy,
 )
 from outpost.result import ok, warn
-
-from .utils import BlockingCheckExecutor
 
 
 class TestDatasource(Datasource):

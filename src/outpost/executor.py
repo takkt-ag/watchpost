@@ -22,9 +22,9 @@ import logging
 import threading
 from collections import deque
 from collections.abc import Awaitable, Callable, Hashable
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, override
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -188,3 +188,31 @@ class CheckExecutor[T]:
                     errors[str(key)] = str(exception)
 
         return errors
+
+
+class BlockingCheckExecutor[T](CheckExecutor[T]):
+    """
+    A BlockingCheckExecutor class for executing checks with synchronous behavior.
+
+    This class extends the CheckExecutor class and allows for blocking execution
+    of tasks until all associated futures are completed. It can be used in
+    scenarios where synchronization of task execution results is required, such
+    as tests or in the CLI.
+
+    PLEASE DO NOT USE THIS EXECUTOR UNLESS YOU KNOW WHAT YOU ARE DOING! All
+    regular uses of Outpost should make use of the default `CheckExecutor` class.
+    """
+
+    def __init__(
+        self,
+        max_workers: int | None = 1,
+    ):
+        super().__init__(max_workers)
+
+    @override
+    def result(
+        self,
+        key: Hashable,
+    ) -> T | None:
+        wait(self._state[key].active_futures, return_when="ALL_COMPLETED")
+        return super().result(key)

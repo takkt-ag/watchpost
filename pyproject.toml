@@ -14,8 +14,17 @@ dependencies = [
     "timelength>=3.0.2",
 ]
 
+[project.optional-dependencies]
+cli = [
+    "click>=8.2.1",
+    "rich>=14.1.0",
+]
+redis = [
+    "redis>=6.4.0",
+]
+
 [project.scripts]
-outpost = "outpost:main"
+outpost = "outpost.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]
@@ -31,9 +40,6 @@ dev = [
     "ruff>=0.12.7",
     "testcontainers[redis]>=4.12.0",
     "ty>=0.0.1a17",
-]
-redis = [
-    "redis>=6.4.0",
 ]
 
 [tool.licensecheck]

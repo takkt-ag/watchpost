@@ -22,11 +22,11 @@ from outpost import Datasource
 from outpost.app import Outpost
 from outpost.check import check
 from outpost.environment import Environment
-from outpost.executor import CheckExecutor
+from outpost.executor import BlockingCheckExecutor, CheckExecutor
 from outpost.http import routes
 from outpost.result import ok
 
-from .utils import BlockingCheckExecutor, decode_checkmk_output
+from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test-env")
 

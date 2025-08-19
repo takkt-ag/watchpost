@@ -95,6 +95,18 @@ wheels = [
 ]
 
 [[package]]
+name = "click"
+version = "8.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215, upload-time = "2025-05-20T23:19:47.796Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -316,6 +328,15 @@ dependencies = [
     { name = "timelength" },
 ]
 
+[package.optional-dependencies]
+cli = [
+    { name = "click" },
+    { name = "rich" },
+]
+redis = [
+    { name = "redis" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
@@ -327,15 +348,16 @@ dev = [
     { name = "testcontainers", extra = ["redis"] },
     { name = "ty" },
 ]
-redis = [
-    { name = "redis" },
-]
 
 [package.metadata]
 requires-dist = [
+    { name = "click", marker = "extra == 'cli'", specifier = ">=8.2.1" },
+    { name = "redis", marker = "extra == 'redis'", specifier = ">=6.4.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=14.1.0" },
     { name = "starlette", specifier = ">=0.47.2" },
     { name = "timelength", specifier = ">=3.0.2" },
 ]
+provides-extras = ["cli", "redis"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -348,7 +370,6 @@ dev = [
     { name = "testcontainers", extras = ["redis"], specifier = ">=4.12.0" },
     { name = "ty", specifier = ">=0.0.1a17" },
 ]
-redis = [{ name = "redis", specifier = ">=6.4.0" }]
 
 [[package]]
 name = "packaging"

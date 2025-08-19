@@ -26,8 +26,9 @@ import pytest
 from outpost.app import Outpost
 from outpost.check import check
 from outpost.environment import Environment
+from outpost.executor import BlockingCheckExecutor
 
-from .utils import BlockingCheckExecutor, decode_checkmk_output
+from .utils import decode_checkmk_output
 
 
 @pytest.fixture()

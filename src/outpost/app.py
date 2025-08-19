@@ -317,7 +317,11 @@ class Outpost:
         check: Check,
         environment: Environment,
         datasources: dict[str, Datasource],
+        *,
+        custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
     ) -> list[ExecutionResult] | None:
+        executor = custom_executor or self.executor
+
         piggyback_host = resolve_hostname(
             outpost=self,
             environment=environment,
@@ -371,7 +375,7 @@ class Outpost:
         )
 
         if should_update_cache or not can_reuse_results:
-            self.executor.submit(
+            executor.submit(
                 key=executor_key,
                 func=check.run_async if check.is_async else check.run_sync,
                 resubmit=check.cache_for is None,
@@ -384,7 +388,7 @@ class Outpost:
             return check_results_cache_entry.value  # type: ignore[union-attr]
 
         try:
-            maybe_execution_results = self.executor.result(key=executor_key)
+            maybe_execution_results = executor.result(key=executor_key)
 
             # If the check is still running asynchronously but we did have a set
             # of results cached, we do want to fall back to this cache while it
@@ -452,24 +456,33 @@ class Outpost:
         )
         return maybe_execution_results
 
+    def run_check(
+        self,
+        check: Check,
+        *,
+        custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
+    ) -> Generator[ExecutionResult]:
+        with self.app_context():
+            datasources = self._resolve_datasources(check)
+            for environment in check.environments:
+                execution_results = self._run_check(
+                    check=check,
+                    environment=environment,
+                    datasources=datasources,
+                    custom_executor=custom_executor,
+                )
+
+                if not execution_results:
+                    continue
+                yield from execution_results
+
     def run_checks(self) -> Generator[bytes]:
         with self.app_context():
             yield from self._generate_checkmk_agent_output()
 
             for check in self.checks:
-                datasources = self._resolve_datasources(check)
-                for environment in check.environments:
-                    execution_results = self._run_check(
-                        check=check,
-                        environment=environment,
-                        datasources=datasources,
-                    )
-
-                    if not execution_results:
-                        continue
-
-                    for execution_result in execution_results:
-                        yield from execution_result.generate_checkmk_output()
+                for execution_result in self.run_check(check):
+                    yield from execution_result.generate_checkmk_output()
 
             yield from self._generate_synthetic_result_outputs()
 

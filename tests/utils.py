@@ -17,22 +17,10 @@
 import base64
 import json
 import re
-from collections.abc import Generator, Hashable
-from concurrent.futures import wait
+from collections.abc import Generator
 from contextlib import contextmanager
 from threading import Event
 from typing import Any
-
-from outpost.executor import CheckExecutor
-
-
-class BlockingCheckExecutor[T](CheckExecutor[T]):
-    def __init__(self, max_workers: int | None = 1):
-        super().__init__(max_workers)
-
-    def result(self, key: Hashable) -> T | None:
-        wait(self._state[key].active_futures, return_when="ALL_COMPLETED")
-        return super().result(key)
 
 
 def decode_checkmk_output(output: str | bytes) -> list[dict[str, Any]]:
