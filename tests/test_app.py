@@ -28,6 +28,7 @@ from outpost.environment import Environment
 from outpost.executor import BlockingCheckExecutor
 from outpost.globals import current_app
 from outpost.result import CheckState, ExecutionResult, ok
+from outpost.scheduling_strategy import InvalidCheckConfiguration
 
 from .utils import decode_checkmk_output
 
@@ -627,3 +628,85 @@ def test_cache_is_used_only_if_no_fresh_results_available():
     assert service_results[0]["environment"] == env.name
     assert service_results[0]["check_state"] == "OK"
     assert service_results[0]["summary"] == "Live result"  # not "Cached OK"
+
+
+def test_verify_check_scheduling_reports_missing_required_kwargs() -> None:
+    # Define a check function that declares a parameter which Outpost cannot provide
+    # (it's not an Environment nor a Datasource-typed argument)
+    def my_check(foo: int):
+        _ = foo
+        return ok("fine")
+
+    check = Check(
+        check_function=my_check,
+        service_name="svc-kwargs-mismatch",
+        service_labels={},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+
+    app = Outpost(
+        checks=[check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+
+    with pytest.raises(ExceptionGroup) as eg:
+        app.verify_check_scheduling(force=True)
+
+    assert isinstance(eg.value, ExceptionGroup)
+    assert eg.value.message == "One or more checks are not well-configured"
+    # The group should contain exactly one InvalidCheckConfiguration
+    assert len(eg.value.exceptions) == 1
+    exc = eg.value.exceptions[0]
+    assert isinstance(exc, InvalidCheckConfiguration)
+    # Error message should explain required vs provided kwargs
+    msg = str(exc)
+    assert "Invalid check configuration:" in msg
+    assert "Failed to resolve datasources: Unsupported parameter" in msg
+    assert "foo: <class 'int'>" in msg
+    # And reference the affected check for easier debugging
+    assert "svc-kwargs-mismatch" in msg or check.name in msg
+
+
+class MissingDatasource(Datasource):
+    pass
+
+
+def test_verify_check_scheduling_wraps_datasource_resolution_errors() -> None:
+    # Define a datasource type that is NOT registered with the app
+
+    # The check requires the unregistered datasource, which should cause
+    # Outpost._resolve_datasources to raise a ValueError.
+    def needs_missing_ds(ds: MissingDatasource):
+        _ = ds
+        return ok("won't run")
+
+    check = Check(
+        check_function=needs_missing_ds,
+        service_name="svc-missing-ds",
+        service_labels={},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+
+    app = Outpost(
+        checks=[check],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+
+    with pytest.raises(ExceptionGroup) as eg:
+        app.verify_check_scheduling(force=True)
+
+    assert isinstance(eg.value, ExceptionGroup)
+    assert eg.value.message == "One or more checks are not well-configured"
+    assert len(eg.value.exceptions) == 1
+    exc = eg.value.exceptions[0]
+    assert isinstance(exc, InvalidCheckConfiguration)
+    # The reason should be wrapped with a helpful prefix and include the underlying message
+    msg = str(exc)
+    assert "Failed to resolve datasources:" in msg
+    assert "No datasource definition for" in msg
+    # And reference the affected check
+    assert "svc-missing-ds" in msg or check.name in msg

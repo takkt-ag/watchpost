@@ -248,9 +248,19 @@ class Outpost:
                     f"Example: Annotated[YourDatasourceType, FromFactory(YourFactoryType, 'arg1', arg2=value)]"
                 )
 
-            if issubclass(parameter, Datasource):
+            if isinstance(parameter, type) and issubclass(parameter, Datasource):
                 datasources[name] = self._resolve_datasource(parameter)
                 continue
+
+            if isinstance(parameter, type) and issubclass(parameter, Environment):
+                continue
+
+            raise ValueError(
+                f"Unsupported parameter `{name}: {parameter}` in `{check.name}`.\n"
+                "Only types derived from Datasource (or Environment) are "
+                "supported. (If your type is derived from Datasource, make sure "
+                "it is a regular class defined outside of a function.)"
+            )
 
         self._resolved_datasources[check] = datasources
         return datasources
@@ -305,15 +315,43 @@ class Outpost:
         exceptions = []
         with self.app_context():
             for check in self.checks:
-                for target_environment in check.environments:
-                    # We ignore the return value, we only care if .schedule
-                    # throws an InvalidCheckConfiguration exception.
-                    try:
-                        self._resolve_check_scheduling_decision(
-                            check, target_environment
+                try:
+                    datasources = self._resolve_datasources(check)
+                    for target_environment in check.environments:
+                        available_kwarg_keys = set(
+                            check.get_function_kwargs(
+                                environment=target_environment,
+                                datasources=datasources,
+                            ).keys()
                         )
-                    except InvalidCheckConfiguration as e:
-                        exceptions.append(e)
+                        expected_kwarg_keys = set(check.signature.parameters.keys())
+                        if available_kwarg_keys != expected_kwarg_keys:
+                            exceptions.append(
+                                InvalidCheckConfiguration(
+                                    check,
+                                    (
+                                        f"Check requires the following arguments: {', '.join(expected_kwarg_keys)}\n"
+                                        f"Outpost can only provide: {', '.join(available_kwarg_keys)}"
+                                    ),
+                                )
+                            )
+
+                        # We ignore the return value, we only care if .schedule
+                        # throws an InvalidCheckConfiguration exception.
+                        try:
+                            self._resolve_check_scheduling_decision(
+                                check, target_environment
+                            )
+                        except InvalidCheckConfiguration as e:
+                            exceptions.append(e)
+                except ValueError as e:
+                    exceptions.append(
+                        InvalidCheckConfiguration(
+                            check,
+                            f"Failed to resolve datasources: {e!s}",
+                            e,
+                        )
+                    )
 
         if exceptions:
             raise ExceptionGroup(

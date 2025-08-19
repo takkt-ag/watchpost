@@ -37,9 +37,10 @@ class InvalidCheckConfiguration(Exception):
     requirements are used in a single check.
     """
 
-    def __init__(self, check: Check, reason: str):
+    def __init__(self, check: Check, reason: str, cause: Exception | None = None):
         self.check = check
         self.reason = reason
+        self.cause = cause
         super().__init__(
             f"Invalid check configuration: {reason}\n\nAffected check: {check}"
         )
