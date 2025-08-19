@@ -21,7 +21,7 @@ from rich.live import Live
 from outpost.executor import BlockingCheckExecutor, CheckExecutor
 
 try:
-    import click
+    import click  # type: ignore
     from rich.console import Console
     from rich.table import Table
 except ImportError as e:
@@ -62,12 +62,12 @@ def display_results_table(results: Iterable[ExecutionResult]) -> None:
             )
 
 
-@click.group()
+@click.group()  # type: ignore[misc]
 @click.option(
     "--app",
     help="The Outpost application to load, in 'module:variable' format.",
-)
-@click.pass_context
+)  # type: ignore[misc]
+@click.pass_context  # type: ignore[misc]
 def cli(
     ctx: click.Context,
     app: str | None = None,
@@ -75,14 +75,14 @@ def cli(
     ctx.obj = find_app(app)
 
 
-@cli.command()
-@click.pass_obj
+@cli.command()  # type: ignore[misc]
+@click.pass_obj  # type: ignore[misc]
 def list_checks(app: Outpost) -> None:
     for check in sorted(app.checks, key=lambda check: check.name):
         click.echo(f"{check.name}{check.signature}")
 
 
-@cli.command()
+@cli.command()  # type: ignore[misc]
 @click.option(
     "--asynchronous-check-execution/--synchronous-check-execution",
     is_flag=True,
@@ -92,18 +92,18 @@ def list_checks(app: Outpost) -> None:
         "you run them asynchronously, almost all checks will return in the "
         "`UNKNOWN` state informing you they are running asynchronously."
     ),
-)
+)  # type: ignore[misc]
 @click.option(
     "--filter-prefix",
     default=None,
     help="Filter which checks to run by prefix against their name (as shown by list-checks)",
-)
+)  # type: ignore[misc]
 @click.option(
     "--filter-contains",
     default=None,
     help="Filter which checks to run by substring against their name (as shown by list-checks)",
-)
-@click.pass_obj
+)  # type: ignore[misc]
+@click.pass_obj  # type: ignore[misc]
 def run_checks(
     app: Outpost,
     asynchronous_check_execution: bool = False,
