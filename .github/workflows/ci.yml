@@ -87,6 +87,9 @@ jobs:
     - name: Set up Python
       run: uv python install
 
-    - name: Run basic example
+    - name: Run basic example through example's entrypoint
       working-directory: ./examples/basic
       run: uv run example
+    - name: Run basic example through outpost CLI
+      working-directory: ./examples/basic
+      run: uv run outpost --app basic:app run-checks
