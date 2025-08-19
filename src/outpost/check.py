@@ -113,7 +113,16 @@ class Check:
 
     @property
     def type_hints(self) -> dict[str, Any]:
-        return typing.get_type_hints(self.check_function, include_extras=True)
+        try:
+            return {
+                k: v
+                for k, v in typing.get_type_hints(
+                    self.check_function, include_extras=True
+                ).items()
+                if k != "return"
+            }
+        except NameError:
+            return dict(self.signature.parameters)
 
     @property
     def is_async(self) -> bool:
@@ -128,7 +137,7 @@ class Check:
             inspect.signature(self.check_function),
         )
 
-    def _run_prepare_kwargs(
+    def get_function_kwargs(
         self,
         *,
         environment: Environment,
@@ -199,7 +208,7 @@ class Check:
                 "Check is not sync but async, call and await `run_async` instead"
             )
 
-        kwargs = self._run_prepare_kwargs(
+        kwargs = self.get_function_kwargs(
             environment=environment,
             datasources=datasources,
         )
@@ -235,7 +244,7 @@ class Check:
                 "Check is not async but sync, call `run_sync` without await instead"
             )
 
-        kwargs = self._run_prepare_kwargs(
+        kwargs = self.get_function_kwargs(
             environment=environment,
             datasources=datasources,
         )
