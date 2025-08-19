@@ -208,7 +208,7 @@ class Outpost:
                     datasource.scheduling_strategies = (
                         from_factory.factory_type.scheduling_strategies
                     )
-                else:
+                elif from_factory.factory_type.scheduling_strategies is Ellipsis:
                     logger.warning(
                         "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
                         datasource,

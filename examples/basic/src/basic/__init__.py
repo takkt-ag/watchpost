@@ -39,6 +39,8 @@ class MockBoto3Client(Datasource):
 
 
 class Boto3(DatasourceFactory):
+    scheduling_strategies = ()
+
     def new(self, service: str) -> Datasource:
         return MockBoto3Client(service, "eu-central-1")
 
