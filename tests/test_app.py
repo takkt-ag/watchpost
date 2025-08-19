@@ -14,13 +14,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import override
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from outpost.app import Outpost
+from outpost.cache import CacheEntry, CacheKey, InMemoryStorage
 from outpost.check import Check, check
 from outpost.datasource import Datasource, DatasourceUnavailable
 from outpost.environment import Environment
@@ -561,3 +562,67 @@ def test_datasource_unavailable_with_expired_cache_returns_enriched_cached_resul
     assert res2["details"] is not None
     assert "backend down" in res2["details"]
     assert "DatasourceUnavailable" in res2["details"]
+
+
+def _prepare_expired_cache_entry(
+    storage: InMemoryStorage,
+    key: str,
+    value: list[ExecutionResult],
+) -> None:
+    entry = CacheEntry[list[ExecutionResult]](
+        cache_key=CacheKey(key=key, package="outpost"),
+        value=value,
+        added_at=datetime.now(tz=UTC) - timedelta(minutes=5),
+        ttl=timedelta(seconds=1),
+    )
+    storage.store(entry)
+
+
+def test_cache_is_used_only_if_no_fresh_results_available():
+    # Arrange: a blocking executor makes fresh results deterministically available
+    env = Environment("blocking-env")
+    outpost_env = Environment("outpost-env")
+
+    storage = InMemoryStorage()
+
+    @check(
+        name="blocking-service",
+        service_labels={"test": "true"},
+        environments=[env],
+        cache_for="1s",  # cache exists but is expired below
+    )
+    def my_check() -> object:
+        return ok("Live result")
+
+    # Pre-populate an expired cached result for this check/environment key
+    cache_key = f"{my_check.name}:{env.name}"
+    cached_results = [
+        ExecutionResult(
+            piggyback_host="",
+            service_name="blocking-service",
+            service_labels={"test": "true"},
+            environment_name=env.name,
+            check_state=CheckState.OK,
+            summary="Cached OK",
+        )
+    ]
+    _prepare_expired_cache_entry(storage, cache_key, cached_results)
+
+    app = Outpost(
+        checks=[my_check],
+        execution_environment=outpost_env,
+        executor=BlockingCheckExecutor(),
+        version="test",
+        check_cache_storage=storage,
+    )
+
+    # Act: Run checks; with a blocking executor, a fresh result will be available
+    output = b"".join(app.run_checks())
+    results = decode_checkmk_output(output)
+
+    # Assert: the fresh result must be used, not the expired cached one
+    service_results = [r for r in results if r["service_name"] == "blocking-service"]
+    assert len(service_results) == 1
+    assert service_results[0]["environment"] == env.name
+    assert service_results[0]["check_state"] == "OK"
+    assert service_results[0]["summary"] == "Live result"  # not "Cached OK"

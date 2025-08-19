@@ -394,7 +394,7 @@ class Outpost:
             # that has a `cache_for` specified does not return "check is running
             # asynchronously" in the short time period where the cache has
             # expired and the check was just submitted.
-            if check_results_cache_entry:
+            if not maybe_execution_results and check_results_cache_entry:
                 return check_results_cache_entry.value
         except DatasourceUnavailable as e:
             additional_details = f"\n\n{e!s}\n" + "".join(traceback.format_exception(e))
