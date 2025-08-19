@@ -115,6 +115,8 @@ class Outpost:
             routes=http.routes,
         )
 
+        self._check_scheduling_verified = False
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         with self.app_context():
             return await self._starlette(scope, receive, send)
@@ -293,7 +295,13 @@ class Outpost:
 
         return final_decision
 
-    def _verify_check_scheduling(self) -> None:
+    def verify_check_scheduling(
+        self,
+        force: bool = False,
+    ) -> None:
+        if self._check_scheduling_verified and not force:
+            return
+
         exceptions = []
         with self.app_context():
             for check in self.checks:
@@ -311,6 +319,7 @@ class Outpost:
             raise ExceptionGroup(
                 "One or more checks are not well-configured", exceptions
             )
+        self._check_scheduling_verified = True
 
     def _run_check(
         self,
@@ -477,6 +486,7 @@ class Outpost:
                 yield from execution_results
 
     def run_checks(self) -> Generator[bytes]:
+        self.verify_check_scheduling()
         with self.app_context():
             yield from self._generate_checkmk_agent_output()
 

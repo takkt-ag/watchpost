@@ -19,6 +19,7 @@ from collections.abc import Iterable
 from rich.live import Live
 
 from outpost.executor import BlockingCheckExecutor, CheckExecutor
+from outpost.scheduling_strategy import InvalidCheckConfiguration
 
 try:
     import click  # type: ignore
@@ -80,6 +81,35 @@ def cli(
 def list_checks(app: Outpost) -> None:
     for check in sorted(app.checks, key=lambda check: check.name):
         click.echo(f"{check.name}{check.signature}")
+
+
+@cli.command()  # type: ignore[misc]
+@click.pass_obj  # type: ignore[misc]
+def verify_check_configuration(app: Outpost) -> None:
+    console = Console()
+
+    try:
+        app.verify_check_scheduling()
+        console.print("Check scheduling verified.")
+    except ExceptionGroup as exception_group:
+        table = Table(title="Check Configuration Verification")
+        table.add_column("Check Name")
+        table.add_column("Error")
+
+        for exception in exception_group.exceptions:
+            if not isinstance(exception, InvalidCheckConfiguration):
+                table.add_row(
+                    "<unknown>",
+                    str(exception),
+                )
+            else:
+                table.add_row(
+                    exception.check.name,
+                    exception.reason,
+                )
+            table.add_section()
+
+        console.print(table)
 
 
 @cli.command()  # type: ignore[misc]
