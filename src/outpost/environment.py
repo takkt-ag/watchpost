@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
 
 from .hostname import HostnameInput, to_strategy
 
@@ -28,5 +29,18 @@ class Environment:
         self.name = name
         self.hostname_strategy = to_strategy(hostname)
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Environment):
+            return (
+                self.name == other.name
+                and self.hostname_strategy == other.hostname_strategy
+            )
+        return False
+
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash(
+            (
+                self.name,
+                self.hostname_strategy,
+            )
+        )

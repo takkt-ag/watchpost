@@ -75,7 +75,7 @@ def test_invalid_combination():
     app.register_datasource(LogSystem)
     app.register_datasource(ProductService)
     with pytest.raises(ExceptionGroup) as exc_info:
-        app._verify_check_scheduling()
+        app.verify_check_scheduling()
 
     assert isinstance(exc_info.value, ExceptionGroup)
     exception_group: ExceptionGroup = exc_info.value
@@ -192,7 +192,7 @@ def test_invalid_disjoint_execution_environments():
     app.register_datasource(MustRunExecPreprod)
 
     with pytest.raises(ExceptionGroup) as exc_info:
-        app._verify_check_scheduling()
+        app.verify_check_scheduling()
 
     assert isinstance(exc_info.value, ExceptionGroup)
     exception_group: ExceptionGroup = exc_info.value
@@ -309,7 +309,7 @@ def test_target_env_subset_allowed():
     app.register_datasource(WideTargetDatasource)
 
     # With strategies supporting a superset of target environments, this should be valid
-    app._verify_check_scheduling()
+    app.verify_check_scheduling()
 
 
 def test_invalid_exec_and_target_envs_without_intersection_but_current_required():
@@ -348,7 +348,7 @@ def test_invalid_exec_and_target_envs_without_intersection_but_current_required(
     # exist, MustRunInCurrentExecutionEnvironmentStrategy is present, but they don't
     # intersect, thus raising InvalidCheckConfiguration with the specific reason.
     with pytest.raises(ExceptionGroup) as exc_info:
-        app._verify_check_scheduling()
+        app.verify_check_scheduling()
 
     assert isinstance(exc_info.value, ExceptionGroup)
     exception_group: ExceptionGroup = exc_info.value

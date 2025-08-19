@@ -617,7 +617,7 @@ def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
         assert decision_a == SchedulingDecision.DONT_SCHEDULE
 
 
-def test_factory_and_datasource_without_strategies_logs_warning(caplog) -> None:
+def test_factory_and_datasource_without_strategies_logs_no_warning(caplog) -> None:
     ENV = Environment("env")
 
     class NoStrategyDatasource(Datasource):
@@ -659,8 +659,8 @@ def test_factory_and_datasource_without_strategies_logs_warning(caplog) -> None:
         _ = app._resolve_scheduling_strategies(my_check)
 
     warnings = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
-    assert any(
+    assert all(
         "The factory-created datasource has no scheduling strategies defined"
-        in rec.message
+        not in rec.message
         for rec in warnings
     )
