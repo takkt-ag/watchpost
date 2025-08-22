@@ -19,7 +19,7 @@ from threading import Event
 
 import pytest
 
-from outpost.executor import CheckExecutor
+from watchpost.executor import CheckExecutor
 
 from .utils import with_event
 

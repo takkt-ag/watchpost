@@ -1,3 +1,3 @@
-# Basic example for an Outpost application
+# Basic example for an Watchpost application
 
-This is a basic example of an Outpost application, demonstrating the various concepts in a hopefully easy to understand fashion.
+This is a basic example of an Watchpost application, demonstrating the various concepts in a hopefully easy to understand fashion.

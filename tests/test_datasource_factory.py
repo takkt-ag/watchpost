@@ -21,17 +21,17 @@ from typing import Annotated, cast
 
 import pytest
 
-from outpost.app import Outpost
-from outpost.check import Check, check
-from outpost.datasource import Datasource, DatasourceFactory, FromFactory
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
-from outpost.result import CheckResult, ok
-from outpost.scheduling_strategy import (
+from tests.utils import decode_checkmk_output
+from watchpost.app import Watchpost
+from watchpost.check import Check, check
+from watchpost.datasource import Datasource, DatasourceFactory, FromFactory
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
+from watchpost.result import CheckResult, ok
+from watchpost.scheduling_strategy import (
     MustRunInGivenExecutionEnvironmentStrategy,
     SchedulingDecision,
 )
-from tests.utils import decode_checkmk_output
 
 # Define test environment
 TEST_ENVIRONMENT = Environment("test-env")
@@ -73,9 +73,9 @@ class DatasourceWithFactory(Datasource, DatasourceFactory):
 
 
 def test_register_datasource_factory() -> None:
-    """Test that a datasource factory can be registered with an Outpost instance."""
-    # Create an Outpost instance
-    app = Outpost(
+    """Test that a datasource factory can be registered with an Watchpost instance."""
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -90,8 +90,8 @@ def test_register_datasource_factory() -> None:
 
 def test_resolve_datasource_from_factory() -> None:
     """Test that a datasource can be resolved from a factory."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -115,8 +115,8 @@ def test_resolve_datasource_from_factory() -> None:
 
 def test_resolve_datasource_from_factory_caching() -> None:
     """Test that resolved datasources are cached."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -142,8 +142,8 @@ def test_resolve_datasource_from_factory_caching() -> None:
 
 def test_resolve_datasource_from_factory_with_different_args() -> None:
     """Test that different args produce different datasources."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -174,8 +174,8 @@ def test_resolve_datasource_from_factory_with_different_args() -> None:
 
 def test_resolve_datasource_from_factory_with_kwargs() -> None:
     """Test that a datasource can be resolved from a factory with kwargs."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -201,8 +201,8 @@ def test_resolve_datasource_from_factory_with_kwargs() -> None:
 
 def test_factory_not_registered() -> None:
     """Test that an error is raised when trying to resolve a datasource from an unregistered factory."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -233,8 +233,8 @@ def test_check_with_factory_datasource() -> None:
     ) -> CheckResult:
         return ok(f"Datasource config: {datasource.config_value}")
 
-    # Create an Outpost instance with the check
-    app = Outpost(
+    # Create an Watchpost instance with the check
+    app = Watchpost(
         checks=[test_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -245,7 +245,7 @@ def test_check_with_factory_datasource() -> None:
 
     # Run the check
     results = test_check.run_sync(
-        outpost=app,
+        watchpost=app,
         datasources={
             "datasource": app._resolve_datasource_from_factory(
                 ConfigurableTestDatasource,
@@ -282,8 +282,8 @@ def test_check_with_multiple_factory_datasources() -> None:
             f"Datasource1: {datasource1.config_value}, Datasource2: {datasource2.config_value}"
         )
 
-    # Create an Outpost instance with the check
-    app = Outpost(
+    # Create an Watchpost instance with the check
+    app = Watchpost(
         checks=[test_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -294,7 +294,7 @@ def test_check_with_multiple_factory_datasources() -> None:
 
     # Run the check
     results = test_check.run_sync(
-        outpost=app,
+        watchpost=app,
         datasources={
             "datasource1": app._resolve_datasource_from_factory(
                 ConfigurableTestDatasource,
@@ -334,8 +334,8 @@ def test_check_with_mixed_datasources() -> None:
     ) -> CheckResult:
         return ok(f"Regular: {type(regular).__name__}, Factory: {factory.config_value}")
 
-    # Create an Outpost instance with the check
-    app = Outpost(
+    # Create an Watchpost instance with the check
+    app = Watchpost(
         checks=[test_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -347,7 +347,7 @@ def test_check_with_mixed_datasources() -> None:
 
     # Run the check
     results = test_check.run_sync(
-        outpost=app,
+        watchpost=app,
         datasources={
             "regular": TestDatasource(),
             "factory": app._resolve_datasource_from_factory(
@@ -366,8 +366,8 @@ def test_check_with_mixed_datasources() -> None:
     )
 
 
-def test_outpost_resolve_datasources_with_factory() -> None:
-    """Test that Outpost._resolve_datasources correctly handles factory datasources."""
+def test_watchpost_resolve_datasources_with_factory() -> None:
+    """Test that Watchpost._resolve_datasources correctly handles factory datasources."""
 
     # Create a check function that uses a factory datasource
     def check_func(
@@ -386,8 +386,8 @@ def test_outpost_resolve_datasources_with_factory() -> None:
         cache_for=None,
     )
 
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[check_obj],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -405,8 +405,8 @@ def test_outpost_resolve_datasources_with_factory() -> None:
     assert datasources["datasource"].config_value == "factory-created-test-service"
 
 
-def test_outpost_run_checks_with_factory() -> None:
-    """Test that Outpost.run_checks correctly handles factory datasources."""
+def test_watchpost_run_checks_with_factory() -> None:
+    """Test that Watchpost.run_checks correctly handles factory datasources."""
 
     # Create a check function that uses a factory datasource
     @check(
@@ -422,8 +422,8 @@ def test_outpost_run_checks_with_factory() -> None:
     ) -> CheckResult:
         return ok(f"Datasource config: {datasource.config_value}")
 
-    # Create an Outpost instance with the check
-    app = Outpost(
+    # Create an Watchpost instance with the check
+    app = Watchpost(
         checks=[test_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -456,7 +456,7 @@ def test_outpost_run_checks_with_factory() -> None:
             },
             {
                 "check_state": "OK",
-                "details": "Check functions:\n- tests.test_datasource_factory.test_outpost_run_checks_with_factory.<locals>.test_check",
+                "details": "Check functions:\n- tests.test_datasource_factory.test_watchpost_run_checks_with_factory.<locals>.test_check",
                 "environment": "test-env",
                 "metrics": [],
                 "service_labels": {},
@@ -514,8 +514,8 @@ def test_annotated_with_non_fromfactory() -> None:
         cache_for=None,
     )
 
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[check_obj],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -555,7 +555,7 @@ def test_factory_datasource_prefers_own_strategies_over_factory() -> None:
     def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithDifferentStrategy)]):
         return ok("unused")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=A,
         executor=BlockingCheckExecutor(),
@@ -612,7 +612,7 @@ def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
         return ok("unused")
 
     # Executing from B should be allowed due to factory strategies
-    app_b = Outpost(
+    app_b = Watchpost(
         checks=[my_check],
         execution_environment=B,
         executor=BlockingCheckExecutor(),
@@ -624,7 +624,7 @@ def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
         assert decision_b == SchedulingDecision.SCHEDULE
 
     # Executing from A should not be allowed due to factory strategies pinning to B
-    app_a = Outpost(
+    app_a = Watchpost(
         checks=[my_check],
         execution_environment=A,
         executor=BlockingCheckExecutor(),
@@ -663,7 +663,7 @@ def test_factory_and_datasource_without_strategies_logs_no_warning(caplog) -> No
     def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithoutStrategies)]):
         return ok("unused")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=ENV,
         executor=BlockingCheckExecutor(),
@@ -729,7 +729,7 @@ def test_datasource_with_factory():
     ):
         return ok(f"{ds1 is ds2=}: {ds1.value} {ds2.value}")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[
             datasource_with_factory_without_type,
             datasource_with_factory_with_type,

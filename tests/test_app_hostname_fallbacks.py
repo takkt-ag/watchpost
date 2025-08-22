@@ -18,18 +18,18 @@ from __future__ import annotations
 
 from typing import Any, override
 
-from outpost.app import Outpost
-from outpost.check import check
-from outpost.datasource import DatasourceUnavailable
-from outpost.environment import Environment
-from outpost.executor import CheckExecutor
-from outpost.result import ok
-from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+from watchpost.app import Watchpost
+from watchpost.check import check
+from watchpost.datasource import DatasourceUnavailable
+from watchpost.environment import Environment
+from watchpost.executor import CheckExecutor
+from watchpost.result import ok
+from watchpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
 
 
 class FakeExecutor[T](CheckExecutor[T]):
     """
-    Minimal fake executor to drive Outpost._run_check fallback branches deterministically.
+    Minimal fake executor to drive Watchpost._run_check fallback branches deterministically.
 
     - submit(...) is a no-op
     - result(key) returns or raises preconfigured behavior
@@ -75,7 +75,7 @@ def test_hostname_on_skip_without_prior_results_is_resolved():
     env = Environment("prod")
     my_check = _mk_check_with_static_hostname(env)
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=None),  # not used for SKIP without cache
@@ -95,7 +95,7 @@ def test_hostname_on_datasource_unavailable_without_cache_is_resolved():
     env = Environment("prod")
     my_check = _mk_check_with_static_hostname(env)
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=DatasourceUnavailable("temporary outage")),
@@ -114,7 +114,7 @@ def test_hostname_on_generic_exception_is_resolved():
     env = Environment("prod")
     my_check = _mk_check_with_static_hostname(env)
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=RuntimeError("boom")),
@@ -133,7 +133,7 @@ def test_hostname_on_async_first_run_is_resolved():
     env = Environment("prod")
     my_check = _mk_check_with_static_hostname(env)
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=None),  # result() returns None => async path

@@ -21,7 +21,7 @@ import pkgutil
 from collections.abc import Callable, Iterable
 from types import ModuleType
 
-from outpost.check import Check
+from .check import Check
 
 ModulePredicate = Callable[[ModuleType], bool]
 CheckPredicate = Callable[[Check, ModuleType, str], bool]

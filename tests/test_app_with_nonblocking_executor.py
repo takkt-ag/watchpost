@@ -19,24 +19,24 @@ from __future__ import annotations
 from concurrent.futures import wait
 from datetime import UTC, datetime, timedelta
 
-from outpost.app import Outpost
-from outpost.cache import CacheEntry, CacheKey, InMemoryStorage
-from outpost.check import check
-from outpost.environment import Environment
-from outpost.executor import CheckExecutor
-from outpost.result import CheckState, ExecutionResult, ok
+from watchpost.app import Watchpost
+from watchpost.cache import CacheEntry, CacheKey, InMemoryStorage
+from watchpost.check import check
+from watchpost.environment import Environment
+from watchpost.executor import CheckExecutor
+from watchpost.result import CheckState, ExecutionResult, ok
 
 from .utils import decode_checkmk_output, with_event
 
 
-def _collect_output(app: Outpost) -> bytes:
+def _collect_output(app: Watchpost) -> bytes:
     return b"".join(app.run_checks())
 
 
 def test_run_checks_returns_placeholder_until_result_is_ready():
     # Arrange: environment and a check function that waits on an Event
     env = Environment("env-nonblocking")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
     with (
         CheckExecutor(max_workers=1) as executor,
         with_event() as event,
@@ -52,9 +52,9 @@ def test_run_checks_returns_placeholder_until_result_is_ready():
             event.wait()
             return ok("All good")
 
-        app = Outpost(
+        app = Watchpost(
             checks=[my_check],
-            execution_environment=outpost_env,
+            execution_environment=watchpost_env,
             executor=executor,
             version="test",
         )
@@ -92,7 +92,7 @@ def test_run_checks_returns_placeholder_until_result_is_ready():
 def test_run_checks_returns_final_result_after_event_is_set():
     # Arrange: environment and a check function that waits on an Event
     env = Environment("env-nonblocking")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
 
     with (
         CheckExecutor(max_workers=1) as executor,
@@ -109,9 +109,9 @@ def test_run_checks_returns_final_result_after_event_is_set():
             event.wait()
             return ok("All good")
 
-        app = Outpost(
+        app = Watchpost(
             checks=[my_check],
-            execution_environment=outpost_env,
+            execution_environment=watchpost_env,
             executor=executor,
             version="test",
         )
@@ -151,7 +151,7 @@ def test_run_checks_returns_final_result_after_event_is_set():
 
 def test_executor_errored_integration_nonblocking():
     env = Environment("env-nonblocking")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
 
     with (
         CheckExecutor(max_workers=1) as executor,
@@ -168,9 +168,9 @@ def test_executor_errored_integration_nonblocking():
             event.wait()
             raise ValueError("boom")
 
-        app = Outpost(
+        app = Watchpost(
             checks=[failing_check],
-            execution_environment=outpost_env,
+            execution_environment=watchpost_env,
             executor=executor,
             version="test",
         )
@@ -216,7 +216,7 @@ def _prepare_expired_cache_entry(
     value: list[ExecutionResult],
 ) -> None:
     entry = CacheEntry[list[ExecutionResult]](
-        cache_key=CacheKey(key=key, package="outpost"),
+        cache_key=CacheKey(key=key, package="watchpost"),
         value=value,
         added_at=datetime.now(tz=UTC) - timedelta(minutes=5),
         ttl=timedelta(seconds=1),
@@ -227,7 +227,7 @@ def _prepare_expired_cache_entry(
 def test_async_uses_expired_cached_results_when_available_with_cache_for():
     # Arrange
     env = Environment("env-nonblocking")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
 
     storage = InMemoryStorage()
 
@@ -260,9 +260,9 @@ def test_async_uses_expired_cached_results_when_available_with_cache_for():
         ]
         _prepare_expired_cache_entry(storage, cache_key, cached_results)
 
-        app = Outpost(
+        app = Watchpost(
             checks=[my_check],
-            execution_environment=outpost_env,
+            execution_environment=watchpost_env,
             executor=executor,
             version="test",
             check_cache_storage=storage,
@@ -285,7 +285,7 @@ def test_async_uses_expired_cached_results_when_available_with_cache_for():
 def test_async_uses_expired_cached_results_when_available_with_cache_for_none():
     # Arrange
     env = Environment("env-nonblocking")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
 
     storage = InMemoryStorage()
 
@@ -318,9 +318,9 @@ def test_async_uses_expired_cached_results_when_available_with_cache_for_none():
         ]
         _prepare_expired_cache_entry(storage, cache_key, cached_results)
 
-        app = Outpost(
+        app = Watchpost(
             checks=[my_check],
-            execution_environment=outpost_env,
+            execution_environment=watchpost_env,
             executor=executor,
             version="test",
             check_cache_storage=storage,

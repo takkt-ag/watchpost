@@ -18,17 +18,17 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from outpost.check import Check
-from outpost.environment import Environment
-from outpost.result import build_result, ok
+from watchpost.check import Check
+from watchpost.environment import Environment
+from watchpost.result import build_result, ok
 
 
-def _mk_outpost_mock() -> MagicMock:
-    outpost = MagicMock()
+def _mk_watchpost_mock() -> MagicMock:
+    watchpost = MagicMock()
     # Ensure non-strict so default fallback hostname is used and does not interfere
-    outpost.hostname_strategy = None
-    outpost._hostname_strict = False
-    return outpost
+    watchpost.hostname_strategy = None
+    watchpost._hostname_strict = False
+    return watchpost
 
 
 def test_service_name_is_appended_with_name_suffix_for_simple_result():
@@ -45,7 +45,7 @@ def test_service_name_is_appended_with_name_suffix_for_simple_result():
 
     env = Environment("env")
     results = check.run_sync(
-        outpost=_mk_outpost_mock(), environment=env, datasources={}
+        watchpost=_mk_watchpost_mock(), environment=env, datasources={}
     )
     assert len(results) == 1
     assert results[0].service_name == "svc:db"
@@ -66,7 +66,7 @@ def test_service_name_is_appended_with_name_suffix_for_ongoing_result():
 
     env = Environment("env")
     results = check.run_sync(
-        outpost=_mk_outpost_mock(), environment=env, datasources={}
+        watchpost=_mk_watchpost_mock(), environment=env, datasources={}
     )
     assert len(results) == 1
     assert results[0].service_name == "svc:part"
@@ -89,7 +89,7 @@ def test_multiple_results_have_individual_suffixes():
 
     env = Environment("env")
     results = check.run_sync(
-        outpost=_mk_outpost_mock(), environment=env, datasources={}
+        watchpost=_mk_watchpost_mock(), environment=env, datasources={}
     )
     assert len(results) == 2
     service_names = sorted(r.service_name for r in results)

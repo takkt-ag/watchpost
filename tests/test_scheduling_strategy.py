@@ -18,13 +18,13 @@ from typing import override
 
 import pytest
 
-from outpost.app import Outpost
-from outpost.check import check
-from outpost.datasource import Datasource
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
-from outpost.result import CheckResult
-from outpost.scheduling_strategy import (
+from watchpost.app import Watchpost
+from watchpost.check import check
+from watchpost.datasource import Datasource
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
+from watchpost.result import CheckResult
+from watchpost.scheduling_strategy import (
     DetectImpossibleCombinationStrategy,
     InvalidCheckConfiguration,
     MustRunAgainstGivenTargetEnvironmentStrategy,
@@ -67,7 +67,7 @@ def test_invalid_combination():
             f"This check should never run! {log_system=}, {product_service=}"
         )
 
-    app = Outpost(
+    app = Watchpost(
         checks=[invalid_combination],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -97,7 +97,7 @@ def test_decision_must_run_in_current_execution_environment():
         raise AssertionError("Should not be executed in this decision test")
 
     # Executing from Preprod against Preprod: allowed
-    app1 = Outpost(
+    app1 = Watchpost(
         checks=[product_check],
         execution_environment=Preprod,
         executor=BlockingCheckExecutor(),
@@ -108,7 +108,7 @@ def test_decision_must_run_in_current_execution_environment():
     assert decision1 == SchedulingDecision.SCHEDULE
 
     # Executing from Monitoring against Preprod: not allowed
-    app2 = Outpost(
+    app2 = Watchpost(
         checks=[product_check],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -136,7 +136,7 @@ def test_decision_must_run_in_given_execution_environment():
         raise AssertionError("Should not be executed in this decision test")
 
     # Executing from Preprod against Monitoring: not allowed
-    app1 = Outpost(
+    app1 = Watchpost(
         checks=[monitoring_check],
         execution_environment=Preprod,
         executor=BlockingCheckExecutor(),
@@ -149,7 +149,7 @@ def test_decision_must_run_in_given_execution_environment():
     assert decision1 == SchedulingDecision.DONT_SCHEDULE
 
     # Executing from Monitoring against Monitoring: allowed
-    app2 = Outpost(
+    app2 = Watchpost(
         checks=[monitoring_check],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -183,7 +183,7 @@ def test_invalid_disjoint_execution_environments():
     ) -> CheckResult:
         raise AssertionError("Should not be executed in this verification test")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[disjoint_exec_envs],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -223,7 +223,7 @@ def test_skip_decision_is_selected_over_schedule():
     def skip_check(_ds: UnstableDatasource) -> CheckResult:
         raise AssertionError("Should not be executed in this decision test")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[skip_check],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -249,7 +249,7 @@ def test_aggregation_app_and_datasource_strategies():
         raise AssertionError("Should not be executed in this decision test")
 
     # App-level strategy constrains target env to Monitoring
-    app1 = Outpost(
+    app1 = Watchpost(
         checks=[aggregated_check],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),
@@ -268,7 +268,7 @@ def test_aggregation_app_and_datasource_strategies():
     assert decision1 == SchedulingDecision.DONT_SCHEDULE
 
     # If we change execution environment to Preprod, both constraints are satisfied
-    app2 = Outpost(
+    app2 = Watchpost(
         checks=[aggregated_check],
         execution_environment=Preprod,
         executor=BlockingCheckExecutor(),
@@ -301,7 +301,7 @@ def test_target_env_subset_allowed():
     def subset_target_check(_ds: WideTargetDatasource) -> CheckResult:
         raise AssertionError("Should not be executed in this verification test")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[subset_target_check],
         execution_environment=Preprod,
         executor=BlockingCheckExecutor(),
@@ -336,7 +336,7 @@ def test_invalid_exec_and_target_envs_without_intersection_but_current_required(
     ) -> CheckResult:
         raise AssertionError("Should not be executed in this verification test")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[impossible_combo],
         execution_environment=Monitoring,
         executor=BlockingCheckExecutor(),

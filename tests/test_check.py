@@ -16,20 +16,20 @@
 
 from unittest.mock import MagicMock
 
-from outpost.app import Outpost
-from outpost.check import Check, check
-from outpost.datasource import Datasource
-from outpost.environment import Environment
-from outpost.result import CheckState, crit, ok, unknown, warn
-from outpost.utils import InvocationInformation
+from watchpost.app import Watchpost
+from watchpost.check import Check, check
+from watchpost.datasource import Datasource
+from watchpost.environment import Environment
+from watchpost.result import CheckState, crit, ok, unknown, warn
+from watchpost.utils import InvocationInformation
 
 from .utils import decode_checkmk_output
 
 TEST_ENVIRONMENT = Environment("test_env")
-OUTPOST = MagicMock(spec=Outpost)
-OUTPOST.hostname_strategy = None
-OUTPOST.hostname_fallback_to_default_hostname_generation = True
-OUTPOST.hostname_coerce_into_valid_hostname = True
+WATCHPOST = MagicMock(spec=Watchpost)
+WATCHPOST.hostname_strategy = None
+WATCHPOST.hostname_fallback_to_default_hostname_generation = True
+WATCHPOST.hostname_coerce_into_valid_hostname = True
 
 
 class TestDatasource(Datasource):
@@ -107,7 +107,7 @@ def test_generate_hostname():
 
     env = Environment("test_env")
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={"test_datasource": TestDatasource()},
         environment=env,
     )
@@ -135,7 +135,7 @@ def test_run_with_ok_result():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -171,7 +171,7 @@ def test_run_with_critical_result():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -203,7 +203,7 @@ def test_run_with_warning_result():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -235,7 +235,7 @@ def test_run_with_unknown_result():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -270,7 +270,7 @@ def test_run_with_multiple_environments():
     )
 
     results1 = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -281,7 +281,7 @@ def test_run_with_multiple_environments():
     assert results1[0].summary == "Checked environment env1"
 
     results2 = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -292,7 +292,7 @@ def test_run_with_multiple_environments():
     assert results2[0].summary == "Checked environment env2"
 
     results3 = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -326,7 +326,7 @@ def test_run_with_multiple_datasources():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
             "another_datasource": AnotherTestDatasource(),
@@ -359,7 +359,7 @@ def test_run_with_environment_parameter():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -394,7 +394,7 @@ def test_run_captures_stdout_stderr():
     )
 
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -434,7 +434,7 @@ def test_run_with_list_of_results():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -472,7 +472,7 @@ def test_run_with_generator_of_results():
 
     # Run the check
     results = check.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -528,7 +528,7 @@ def test_decorated_function_run_method():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -594,28 +594,28 @@ def test_decorated_function_with_different_result_types():
 
     # Run the checks
     ok_results = ok_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
     warn_results = warn_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
     crit_results = crit_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
         environment=TEST_ENVIRONMENT,
     )
     unknown_results = unknown_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -661,7 +661,7 @@ def test_decorated_function_with_multiple_environments():
         return ok(f"Checked environment {environment.name}")
 
     results1 = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -672,7 +672,7 @@ def test_decorated_function_with_multiple_environments():
     assert results1[0].summary == "Checked environment env1"
 
     results2 = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -683,7 +683,7 @@ def test_decorated_function_with_multiple_environments():
     assert results2[0].summary == "Checked environment env2"
 
     results3 = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -713,7 +713,7 @@ def test_decorated_function_with_multiple_datasources():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
             "another_datasource": AnotherTestDatasource(),
@@ -742,7 +742,7 @@ def test_decorated_function_with_environment_parameter():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -774,7 +774,7 @@ def test_decorated_function_captures_stdout_stderr():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -810,7 +810,7 @@ def test_decorated_function_with_list_of_results():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -844,7 +844,7 @@ def test_decorated_function_with_generator_of_results():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -899,7 +899,7 @@ def test_check_decorator_passes_invocation_information_to_execution_result():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },
@@ -929,7 +929,7 @@ def test_check_decorator_invocation_information_in_checkmk_output():
 
     # Run the check
     results = decorated_func.run_sync(
-        outpost=OUTPOST,
+        watchpost=WATCHPOST,
         datasources={
             "test_datasource": TestDatasource(),
         },

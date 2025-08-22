@@ -21,11 +21,11 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from outpost.executor import BlockingCheckExecutor, CheckExecutor
-from outpost.hostname import resolve_hostname
-from outpost.scheduling_strategy import InvalidCheckConfiguration
+from watchpost.executor import BlockingCheckExecutor, CheckExecutor
+from watchpost.hostname import resolve_hostname
+from watchpost.scheduling_strategy import InvalidCheckConfiguration
 
-from ..app import Outpost
+from ..app import Watchpost
 from ..result import CheckState, ExecutionResult
 from .loader import find_app
 
@@ -38,7 +38,7 @@ STATE_STYLES = {
 
 
 def _get_check_hostnames(
-    app: Outpost,
+    app: Watchpost,
     *,
     collect_errors: bool = False,
 ) -> set[str]:
@@ -48,7 +48,7 @@ def _get_check_hostnames(
         for environment in check.environments:
             try:
                 hostname = resolve_hostname(
-                    outpost=app,
+                    watchpost=app,
                     check=check,
                     environment=environment,
                     result=None,
@@ -102,7 +102,7 @@ def display_results_table(results: Iterable[ExecutionResult]) -> None:
 @click.group()  # type: ignore[misc]
 @click.option(
     "--app",
-    help="The Outpost application to load, in 'module:variable' format.",
+    help="The Watchpost application to load, in 'module:variable' format.",
 )  # type: ignore[misc]
 @click.pass_context  # type: ignore[misc]
 def cli(
@@ -114,14 +114,14 @@ def cli(
 
 @cli.command()  # type: ignore[misc]
 @click.pass_obj  # type: ignore[misc]
-def list_checks(app: Outpost) -> None:
+def list_checks(app: Watchpost) -> None:
     for check in sorted(app.checks, key=lambda check: check.name):
         click.echo(f"{check.name}{check.signature}")
 
 
 @cli.command()  # type: ignore[misc]
 @click.pass_obj  # type: ignore[misc]
-def verify_check_configuration(app: Outpost) -> None:
+def verify_check_configuration(app: Watchpost) -> None:
     console = Console()
 
     table = Table(title="Check Configuration Verification")
@@ -188,7 +188,7 @@ def verify_check_configuration(app: Outpost) -> None:
 )  # type: ignore[misc]
 @click.pass_obj  # type: ignore[misc]
 def run_checks(
-    app: Outpost,
+    app: Watchpost,
     asynchronous_check_execution: bool = False,
     filter_prefix: str | None = None,
     filter_contains: str | None = None,
@@ -214,10 +214,10 @@ def run_checks(
 
 @cli.command()  # type: ignore[misc]
 @click.pass_obj  # type: ignore[misc]
-def get_check_hostnames(app: Outpost) -> None:
+def get_check_hostnames(app: Watchpost) -> None:
     for hostname in sorted(_get_check_hostnames(app)):
         click.echo(hostname)
 
 
 def main() -> None:
-    cli(auto_envvar_prefix="OUTPOST")
+    cli(auto_envvar_prefix="WATCHPOST")

@@ -22,6 +22,6 @@ exec uv run \
   --all-extras \
   --all-groups \
     uv pip freeze \
-  | uv run licensecheck --format markdown --skip-dependencies outpost \
+  | uv run licensecheck --format markdown --skip-dependencies watchpost \
   | grep -vF 'Size:' \
   ;

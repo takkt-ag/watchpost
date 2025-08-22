@@ -14,13 +14,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-try:
-    from ._cli import main
-except ImportError as e:
-    raise ImportError(
-        "To use the Outpost CLI, you have to install outpost with the `cli` extra, e.g. by running: uv add outpost[cli]"
-    ) from e
+from .app import Watchpost
+from .check import check
+from .datasource import Datasource
+from .environment import Environment
+from .globals import current_app
+from .result import build_result, crit, ok, unknown, warn
 
-
-if __name__ == "__main__":
-    main()
+__all__ = [
+    "Datasource",
+    "Environment",
+    "Watchpost",
+    "build_result",
+    "check",
+    "crit",
+    "current_app",
+    "ok",
+    "unknown",
+    "warn",
+]

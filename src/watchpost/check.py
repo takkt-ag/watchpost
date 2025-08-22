@@ -44,7 +44,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .app import Outpost
+    from .app import Watchpost
 
 CheckFunctionResult = (
     CheckResult
@@ -155,7 +155,7 @@ class Check:
     def _normalize_and_materialize_results(
         self,
         *,
-        outpost: Outpost,
+        watchpost: Watchpost,
         environment: Environment,
         initial_result: CheckFunctionResult,
         stdout: io.StringIO,
@@ -174,12 +174,12 @@ class Check:
                 updated_service_name += result.name_suffix
 
             piggyback_host = resolve_hostname(
-                outpost=outpost,
+                watchpost=watchpost,
                 check=self,
                 environment=environment,
                 result=result,
-                fallback_to_default_hostname_generation=outpost.hostname_fallback_to_default_hostname_generation,
-                coerce_into_valid_hostname=outpost.hostname_coerce_into_valid_hostname,
+                fallback_to_default_hostname_generation=watchpost.hostname_fallback_to_default_hostname_generation,
+                coerce_into_valid_hostname=watchpost.hostname_coerce_into_valid_hostname,
             )
             collected_results.append(
                 ExecutionResult(
@@ -200,7 +200,7 @@ class Check:
     def run_sync(
         self,
         *,
-        outpost: Outpost,
+        watchpost: Watchpost,
         environment: Environment,
         datasources: dict[str, Datasource],
     ) -> list[ExecutionResult]:
@@ -219,14 +219,14 @@ class Check:
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
-            with outpost.app_context():
+            with watchpost.app_context():
                 initial_result = cast(
                     CheckFunctionResult,
                     self.check_function(**kwargs),  # type: ignore[call-arg]
                 )
 
         return self._normalize_and_materialize_results(
-            outpost=outpost,
+            watchpost=watchpost,
             environment=environment,
             initial_result=initial_result,
             stdout=stdout,
@@ -236,7 +236,7 @@ class Check:
     async def run_async(
         self,
         *,
-        outpost: Outpost,
+        watchpost: Watchpost,
         environment: Environment,
         datasources: dict[str, Datasource],
     ) -> list[ExecutionResult]:
@@ -255,14 +255,14 @@ class Check:
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
-            with outpost.app_context():
+            with watchpost.app_context():
                 initial_result = await cast(
                     Awaitable[CheckFunctionResult],
                     self.check_function(**kwargs),  # type: ignore[call-arg]
                 )
 
         return self._normalize_and_materialize_results(
-            outpost=outpost,
+            watchpost=watchpost,
             environment=environment,
             initial_result=initial_result,
             stdout=stdout,

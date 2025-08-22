@@ -23,7 +23,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Protocol, override
 
 if TYPE_CHECKING:
-    from .app import Outpost
+    from .app import Watchpost
     from .check import Check
     from .environment import Environment
     from .result import CheckResult
@@ -211,7 +211,7 @@ def to_strategy(value: HostnameInput | None) -> HostnameStrategy | None:
 
 def resolve_hostname(
     *,
-    outpost: Outpost,
+    watchpost: Watchpost,
     check: Check,
     environment: Environment,
     result: CheckResult | None,
@@ -253,15 +253,15 @@ def resolve_hostname(
                     f"Hostname strategy failed at environment level for {check.service_name}/{environment.name}: {e}"
                 ) from e
 
-        # 4) Outpost-level strategy
-        if candidate is None and outpost.hostname_strategy:
+        # 4) Watchpost-level strategy
+        if candidate is None and watchpost.hostname_strategy:
             try:
-                val = outpost.hostname_strategy.resolve(ctx)
+                val = watchpost.hostname_strategy.resolve(ctx)
                 if isinstance(val, str) and val:
                     candidate = val
             except Exception as e:
                 raise HostnameResolutionError(
-                    f"Hostname strategy failed at outpost level for {check.service_name}/{environment.name}: {e}"
+                    f"Hostname strategy failed at watchpost level for {check.service_name}/{environment.name}: {e}"
                 ) from e
 
     if candidate is None and fallback_to_default_hostname_generation:

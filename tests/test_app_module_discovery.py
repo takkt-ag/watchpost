@@ -23,10 +23,10 @@ from unittest.mock import patch
 
 import pytest
 
-from outpost.app import Outpost
-from outpost.check import check
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
+from watchpost.app import Watchpost
+from watchpost.check import check
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
 
 from .utils import decode_checkmk_output
 
@@ -57,8 +57,8 @@ def temp_pkg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     # Common helper for modules that define a Check
     check_module_src = (
-        "from outpost.check import check\n"
-        "from outpost.environment import Environment\n"
+        "from watchpost.check import check\n"
+        "from watchpost.environment import Environment\n"
         "env = Environment('E')\n"
         "@check(name='{svc}', service_labels={{}}, environments=[env], cache_for=None)\n"
         "def {fn}():\n"
@@ -88,10 +88,10 @@ def temp_pkg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     return mod
 
 
-def test_outpost_accepts_module_and_discovers_checks(temp_pkg):
+def test_watchpost_accepts_module_and_discovers_checks(temp_pkg):
     env = Environment("E")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[temp_pkg],
         execution_environment=env,
         executor=BlockingCheckExecutor(),
@@ -101,7 +101,7 @@ def test_outpost_accepts_module_and_discovers_checks(temp_pkg):
     assert names == ["svc_a", "svc_b"]
 
 
-def test_outpost_mixed_checks_and_module_discovery_and_run_once(temp_pkg):
+def test_watchpost_mixed_checks_and_module_discovery_and_run_once(temp_pkg):
     env = Environment("E")
 
     @check(name="svc_direct", service_labels={}, environments=[env], cache_for=None)
@@ -109,7 +109,7 @@ def test_outpost_mixed_checks_and_module_discovery_and_run_once(temp_pkg):
         """A direct test check that yields no results (normalized to UNKNOWN)."""
         return []
 
-    app = Outpost(
+    app = Watchpost(
         checks=[temp_pkg, direct_check],
         execution_environment=env,
         executor=BlockingCheckExecutor(),

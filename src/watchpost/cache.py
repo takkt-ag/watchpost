@@ -262,7 +262,7 @@ class RedisStorage(Storage):
         `get(..., return_expired=True)` will always return `None` if the entry
         has expired.
         :param redis_key_infix: An optional infix to use for Redis keys to
-        ensure the keys don't collide between multiple caches or outposts.
+        ensure the keys don't collide between multiple caches or watchposts.
         """
         self.redis = redis_client
         self._use_redis_ttl = use_redis_ttl
@@ -283,7 +283,7 @@ class RedisStorage(Storage):
         if self._redis_key_infix:
             infix = f"{self._redis_key_infix}:"
 
-        return f"outpost:cache:{infix}v{CacheEntry.VERSION}:{key_hash}"
+        return f"watchpost:cache:{infix}v{CacheEntry.VERSION}:{key_hash}"
 
     def get(
         self,

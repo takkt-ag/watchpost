@@ -22,5 +22,5 @@ exec uv run \
   --all-extras \
   --all-groups \
     uv pip freeze \
-  | uv run licensecheck --zero --skip-dependencies outpost \
+  | uv run licensecheck --zero --skip-dependencies watchpost \
   ;

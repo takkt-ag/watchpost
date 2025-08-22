@@ -90,6 +90,6 @@ jobs:
     - name: Run basic example through example's entrypoint
       working-directory: ./examples/basic
       run: uv run example
-    - name: Run basic example through outpost CLI
+    - name: Run basic example through watchpost CLI
       working-directory: ./examples/basic
-      run: uv run outpost --app basic:app run-checks
+      run: uv run watchpost --app basic:app run-checks
