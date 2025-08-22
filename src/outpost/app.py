@@ -67,7 +67,8 @@ class Outpost:
         check_cache_storage: Storage | None = None,
         default_scheduling_strategies: list[SchedulingStrategy] | None = None,
         hostname: HostnameInput | None = None,
-        hostname_strict: bool = False,
+        hostname_fallback_to_default_hostname_generation: bool = True,
+        hostname_coerce_into_valid_hostname: bool = True,
     ):
         self.checks: list[Check] = []
         for check_or_module in checks:
@@ -84,8 +85,13 @@ class Outpost:
 
         self.execution_environment = execution_environment
         self.version = version
+
         self.hostname_strategy = to_strategy(hostname)
-        self._hostname_strict = hostname_strict
+        self.hostname_fallback_to_default_hostname_generation = (
+            hostname_fallback_to_default_hostname_generation
+        )
+        self.hostname_coerce_into_valid_hostname = hostname_coerce_into_valid_hostname
+
         if executor:
             self.executor = executor
         else:
@@ -380,7 +386,8 @@ class Outpost:
             environment=environment,
             check=check,
             result=None,
-            strict=self._hostname_strict,
+            fallback_to_default_hostname_generation=self.hostname_fallback_to_default_hostname_generation,
+            coerce_into_valid_hostname=self.hostname_coerce_into_valid_hostname,
         )
 
         scheduling_decision = self._resolve_check_scheduling_decision(

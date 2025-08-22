@@ -104,6 +104,8 @@ def test_run_checks_once():
     # Create a mock check that returns a known ExecutionResult
     mock_check = MagicMock(spec=Check)
     mock_check.name = "Test Check"
+    mock_check.service_name = "Test Check"
+    mock_check.service_labels = {}
     mock_check.environments = [TEST_ENVIRONMENT]
     mock_check.cache_for = None
     mock_check.is_async = False
@@ -153,6 +155,8 @@ def test_run_checks_once_with_multiple_checks():
     # Create two mock checks
     mock_check1 = MagicMock(spec=Check)
     mock_check1.name = "Test Check 1"
+    mock_check1.service_name = "Test Check 1"
+    mock_check1.service_labels = {}
     mock_check1.environments = [TEST_ENVIRONMENT]
     mock_check1.cache_for = None
     mock_check1.is_async = False
@@ -168,6 +172,8 @@ def test_run_checks_once_with_multiple_checks():
 
     mock_check2 = MagicMock(spec=Check)
     mock_check2.name = "Test Check 2"
+    mock_check2.service_name = "Test Check 2"
+    mock_check2.service_labels = {}
     mock_check2.environments = [TEST_ENVIRONMENT]
     mock_check2.cache_for = None
     mock_check2.is_async = False
@@ -597,7 +603,7 @@ def test_cache_is_used_only_if_no_fresh_results_available():
         return ok("Live result")
 
     # Pre-populate an expired cached result for this check/environment key
-    cache_key = f"{my_check.name}:{env.name}"
+    cache_key = f"{my_check.service_name}:{env.name}"
     cached_results = [
         ExecutionResult(
             piggyback_host="",
@@ -666,7 +672,7 @@ def test_verify_check_scheduling_reports_missing_required_kwargs() -> None:
     assert "Failed to resolve datasources: Unsupported parameter" in msg
     assert "foo: <class 'int'>" in msg
     # And reference the affected check for easier debugging
-    assert "svc-kwargs-mismatch" in msg or check.name in msg
+    assert "svc-kwargs-mismatch" in msg or check.service_name in msg
 
 
 class MissingDatasource(Datasource):
@@ -709,4 +715,4 @@ def test_verify_check_scheduling_wraps_datasource_resolution_errors() -> None:
     assert "Failed to resolve datasources:" in msg
     assert "No datasource definition for" in msg
     # And reference the affected check
-    assert "svc-missing-ds" in msg or check.name in msg
+    assert "svc-missing-ds" in msg or check.service_name in msg

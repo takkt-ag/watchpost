@@ -34,7 +34,6 @@ from outpost.hostname import (
     HostnameStrategy,
     StaticHostnameStrategy,
     TemplateStrategy,
-    ValidatingStrategy,
     resolve_hostname,
     to_strategy,
 )
@@ -45,13 +44,19 @@ class TestDatasource(Datasource):
     pass
 
 
-def _mk_outpost(*, hostname: str | None = None, strict: bool = False) -> Outpost:
+def _mk_outpost(
+    *,
+    hostname: str | None = None,
+    fallback_to_default_hostname_generation: bool = True,
+    coerce_into_valid_hostname: bool = True,
+) -> Outpost:
     return Outpost(
         checks=[],
         execution_environment=Environment("exec-env"),
         executor=BlockingCheckExecutor(),
         hostname=hostname,
-        hostname_strict=strict,
+        hostname_fallback_to_default_hostname_generation=fallback_to_default_hostname_generation,
+        hostname_coerce_into_valid_hostname=coerce_into_valid_hostname,
     )
 
 
@@ -201,36 +206,6 @@ def test_multi_result_per_result_overrides():
     assert hosts == ["h1", "h2"]
 
 
-def test_validation_and_strict_mode_raises_when_unresolved():
-    env = Environment("prod")
-
-    # Strategy always returns an invalid hostname
-    class AlwaysInvalid(HostnameStrategy):
-        @override
-        def resolve(self, ctx: HostnameContext) -> str | None:
-            return "invalid_host!"  # invalid char '!'
-
-    @check(
-        name="svc",
-        service_labels={},
-        environments=[env],
-        cache_for=None,
-        hostname=ValidatingStrategy(AlwaysInvalid()),
-    )
-    def my_check(test: TestDatasource):
-        _ = test
-        return ok("x")
-
-    app = _mk_outpost(strict=True)
-
-    with pytest.raises(HostnameResolutionError):
-        _ = my_check.run_sync(
-            outpost=app,
-            environment=env,
-            datasources={"test": TestDatasource()},
-        )
-
-
 def test_non_strict_falls_back_when_unresolved():
     env = Environment("prod")
 
@@ -250,7 +225,7 @@ def test_non_strict_falls_back_when_unresolved():
         _ = test
         return ok("x")
 
-    app = _mk_outpost(strict=False)
+    app = _mk_outpost()
     results = my_check.run_sync(
         outpost=app,
         environment=env,
@@ -280,7 +255,7 @@ def test_exception_in_strategy_is_wrapped():
         _ = test
         return ok("x")
 
-    app = _mk_outpost(strict=False)
+    app = _mk_outpost()
     with pytest.raises(HostnameResolutionError) as ei:
         _ = my_check.run_sync(
             outpost=app,
@@ -294,7 +269,7 @@ def test_exception_in_strategy_is_wrapped():
 def test_static_hostname_strategy_returns_value():
     fake_check = MagicMock()
     fake_env = Environment("e1")
-    ctx = HostnameContext(check=fake_check, environment=fake_env)
+    ctx = HostnameContext.new(check=fake_check, environment=fake_env)
 
     strat = StaticHostnameStrategy("static-host")
     assert strat.resolve(ctx) == "static-host"
@@ -305,7 +280,7 @@ def test_function_strategy_uses_callable():
     fake_check.service_name = "svc"
     fake_check.service_labels = {"team": "x"}
     fake_env = Environment("e1")
-    ctx = HostnameContext(check=fake_check, environment=fake_env)
+    ctx = HostnameContext.new(check=fake_check, environment=fake_env)
 
     def fn(c: HostnameContext) -> str:
         return f"{c.service_name}-{c.environment.name}"
@@ -319,7 +294,7 @@ def test_to_strategy_with_callable_and_invalid_input():
     fake_check.service_name = "svc"
     fake_check.service_labels = {}
     fake_env = Environment("env")
-    ctx = HostnameContext(check=fake_check, environment=fake_env)
+    ctx = HostnameContext.new(check=fake_check, environment=fake_env)
 
     # Callable -> FunctionStrategy behavior
     s = to_strategy(lambda c: f"{c.service_name}-{c.environment.name}")
@@ -331,21 +306,22 @@ def test_to_strategy_with_callable_and_invalid_input():
         _ = to_strategy(123)  # type: ignore[arg-type]
 
 
-def test_template_strategy_format_failure_returns_none():
+def test_template_strategy_format_failure_raises():
     fake_check = MagicMock()
     fake_env = Environment("e1")
-    ctx = HostnameContext(check=fake_check, environment=fake_env)
+    ctx = HostnameContext.new(check=fake_check, environment=fake_env)
 
     # Refers to a missing key; should return None
     tpl = TemplateStrategy("{nonexistent}")
-    assert tpl.resolve(ctx) is None
+    with pytest.raises(KeyError, match="nonexistent"):
+        tpl.resolve(ctx)
 
 
 def test_composite_strategy_resolution_order():
     fake_check = MagicMock()
     fake_check.service_name = "svc"
     fake_env = Environment("e1")
-    ctx = HostnameContext(check=fake_check, environment=fake_env)
+    ctx = HostnameContext.new(check=fake_check, environment=fake_env)
 
     none_first = FunctionStrategy(lambda _: None)
     second = StaticHostnameStrategy("second")
@@ -373,7 +349,9 @@ def test_resolve_hostname_uses_final_fallback_when_strict_and_none_other():
         checks=[],
         execution_environment=Environment("exec-env"),
         executor=BlockingCheckExecutor(),
-        hostname_strict=True,
+        hostname="fallback-host",
+        hostname_fallback_to_default_hostname_generation=False,
+        hostname_coerce_into_valid_hostname=False,
     )
 
     result = ok("x")
@@ -381,13 +359,11 @@ def test_resolve_hostname_uses_final_fallback_when_strict_and_none_other():
     # Ensure check has no hostname strategy
     assert ctx_check.hostname_strategy is None
 
-    fb = StaticHostnameStrategy("fallback-host")
     resolved = resolve_hostname(
         outpost=app,
         environment=env,
         check=ctx_check,
         result=result,
-        strict=True,
-        final_fallback=fb,
+        fallback_to_default_hostname_generation=False,
     )
     assert resolved == "fallback-host"
