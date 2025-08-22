@@ -22,6 +22,7 @@ from rich.live import Live
 from rich.table import Table
 
 from outpost.executor import BlockingCheckExecutor, CheckExecutor
+from outpost.hostname import resolve_hostname
 from outpost.scheduling_strategy import InvalidCheckConfiguration
 
 from ..app import Outpost
@@ -34,6 +35,41 @@ STATE_STYLES = {
     CheckState.CRIT: "bold red",
     CheckState.UNKNOWN: "bold magenta",
 }
+
+
+def _get_check_hostnames(
+    app: Outpost,
+    *,
+    collect_errors: bool = False,
+) -> set[str]:
+    hostnames = set()
+    errors = []
+    for check in app.checks:
+        for environment in check.environments:
+            try:
+                hostname = resolve_hostname(
+                    outpost=app,
+                    check=check,
+                    environment=environment,
+                    result=None,
+                    fallback_to_default_hostname_generation=app.hostname_fallback_to_default_hostname_generation,
+                    coerce_into_valid_hostname=app.hostname_coerce_into_valid_hostname,
+                )
+                hostnames.add(hostname)
+            except Exception as e:
+                if collect_errors:
+                    errors.append(
+                        InvalidCheckConfiguration(
+                            check, "Hostname resolution failed", e
+                        )
+                    )
+                else:
+                    raise e
+
+    if errors:
+        raise ExceptionGroup("Failed to resolve hostnames", errors)
+
+    return hostnames
 
 
 def display_results_table(results: Iterable[ExecutionResult]) -> None:
@@ -88,14 +124,14 @@ def list_checks(app: Outpost) -> None:
 def verify_check_configuration(app: Outpost) -> None:
     console = Console()
 
+    table = Table(title="Check Configuration Verification")
+    table.add_column("Check Name")
+    table.add_column("Error")
+
     try:
         app.verify_check_scheduling()
         console.print("Check configurations verified.")
     except ExceptionGroup as exception_group:
-        table = Table(title="Check Configuration Verification")
-        table.add_column("Check Name")
-        table.add_column("Error")
-
         for exception in exception_group.exceptions:
             if not isinstance(exception, InvalidCheckConfiguration):
                 table.add_row(
@@ -109,6 +145,23 @@ def verify_check_configuration(app: Outpost) -> None:
                 )
             table.add_section()
 
+    try:
+        _get_check_hostnames(app, collect_errors=True)
+    except ExceptionGroup as exception_group:
+        for exception in exception_group.exceptions:
+            if isinstance(exception, InvalidCheckConfiguration):
+                table.add_row(
+                    exception.check.name,
+                    str(exception.cause),
+                )
+            else:
+                table.add_row(
+                    "<unknown>",
+                    str(exception),
+                )
+            table.add_section()
+
+    if table.rows:
         console.print(table)
 
 
@@ -157,6 +210,13 @@ def run_checks(
             )
 
     display_results_table(_run())
+
+
+@cli.command()  # type: ignore[misc]
+@click.pass_obj  # type: ignore[misc]
+def get_check_hostnames(app: Outpost) -> None:
+    for hostname in sorted(_get_check_hostnames(app)):
+        click.echo(hostname)
 
 
 def main() -> None:
