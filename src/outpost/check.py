@@ -178,7 +178,8 @@ class Check:
                 check=self,
                 environment=environment,
                 result=result,
-                strict=outpost._hostname_strict,
+                fallback_to_default_hostname_generation=outpost.hostname_fallback_to_default_hostname_generation,
+                coerce_into_valid_hostname=outpost.hostname_coerce_into_valid_hostname,
             )
             collected_results.append(
                 ExecutionResult(

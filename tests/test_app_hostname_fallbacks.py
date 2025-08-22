@@ -80,7 +80,8 @@ def test_hostname_on_skip_without_prior_results_is_resolved():
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=None),  # not used for SKIP without cache
         default_scheduling_strategies=[AlwaysSkipStrategy()],
-        hostname_strict=True,
+        hostname_fallback_to_default_hostname_generation=False,
+        hostname_coerce_into_valid_hostname=False,
     )
 
     with app.app_context():
@@ -98,7 +99,8 @@ def test_hostname_on_datasource_unavailable_without_cache_is_resolved():
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=DatasourceUnavailable("temporary outage")),
-        hostname_strict=True,
+        hostname_fallback_to_default_hostname_generation=False,
+        hostname_coerce_into_valid_hostname=False,
     )
 
     with app.app_context():
@@ -116,7 +118,8 @@ def test_hostname_on_generic_exception_is_resolved():
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=RuntimeError("boom")),
-        hostname_strict=True,
+        hostname_fallback_to_default_hostname_generation=False,
+        hostname_coerce_into_valid_hostname=False,
     )
 
     with app.app_context():
@@ -134,7 +137,8 @@ def test_hostname_on_async_first_run_is_resolved():
         checks=[my_check],
         execution_environment=Environment("exec-env"),
         executor=FakeExecutor(behavior=None),  # result() returns None => async path
-        hostname_strict=True,
+        hostname_fallback_to_default_hostname_generation=False,
+        hostname_coerce_into_valid_hostname=False,
     )
 
     with app.app_context():

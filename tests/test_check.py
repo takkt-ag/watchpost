@@ -28,7 +28,8 @@ from .utils import decode_checkmk_output
 TEST_ENVIRONMENT = Environment("test_env")
 OUTPOST = MagicMock(spec=Outpost)
 OUTPOST.hostname_strategy = None
-OUTPOST._hostname_strict = False
+OUTPOST.hostname_fallback_to_default_hostname_generation = True
+OUTPOST.hostname_coerce_into_valid_hostname = True
 
 
 class TestDatasource(Datasource):
@@ -112,7 +113,7 @@ def test_generate_hostname():
     )
 
     # Verify the hostname format uses default fallback
-    assert results[0].piggyback_host == "test_service-test_env"
+    assert results[0].piggyback_host == "test-service-test-env"
 
 
 def test_run_with_ok_result():
@@ -148,7 +149,7 @@ def test_run_with_ok_result():
     assert results[0].service_name == "test_service"
     assert results[0].environment_name == "test_env"
     assert results[0].service_labels == {"env": "test"}
-    assert results[0].piggyback_host == "test_service-test_env"
+    assert results[0].piggyback_host == "test-service-test-env"
 
 
 def test_run_with_critical_result():
@@ -541,7 +542,7 @@ def test_decorated_function_run_method():
     assert results[0].service_name == "test_service"
     assert results[0].environment_name == "test_env"
     assert results[0].service_labels == {"env": "test"}
-    assert results[0].piggyback_host == "test_service-test_env"
+    assert results[0].piggyback_host == "test-service-test-env"
 
 
 def test_decorated_function_with_different_result_types():
