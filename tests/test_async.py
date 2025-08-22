@@ -19,12 +19,12 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from outpost.app import Outpost
-from outpost.check import Check, check
-from outpost.datasource import Datasource
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
-from outpost.result import CheckResult, ExecutionResult, ok, warn
+from watchpost.app import Watchpost
+from watchpost.check import Check, check
+from watchpost.datasource import Datasource
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
+from watchpost.result import CheckResult, ExecutionResult, ok, warn
 
 from .utils import decode_checkmk_output
 
@@ -75,7 +75,7 @@ def test_run_sync_and_run_async_parity():
         cache_for=None,
     )
 
-    app = Outpost(
+    app = Watchpost(
         checks=[sync_check, async_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -85,7 +85,7 @@ def test_run_sync_and_run_async_parity():
     with app.app_context():
         # Run sync
         sync_results = sync_check.run_sync(
-            outpost=app,
+            watchpost=app,
             environment=TEST_ENVIRONMENT,
             datasources={"_": DummyDatasource()},
         )
@@ -93,7 +93,7 @@ def test_run_sync_and_run_async_parity():
         # Run async
         async_results = asyncio.run(
             async_check.run_async(
-                outpost=app,
+                watchpost=app,
                 environment=TEST_ENVIRONMENT,
                 datasources={"_": DummyDatasource()},
             )
@@ -122,7 +122,7 @@ def test_run_sync_and_run_async_parity():
 
 
 def test_app_runs_async_check_and_emits_output():
-    """Integration: Outpost should run an async check and produce Checkmk output."""
+    """Integration: Watchpost should run an async check and produce Checkmk output."""
 
     @check(
         name="async-check",
@@ -135,7 +135,7 @@ def test_app_runs_async_check_and_emits_output():
         await asyncio.sleep(0)
         return ok("works")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_async_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),

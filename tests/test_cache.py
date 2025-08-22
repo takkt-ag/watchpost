@@ -22,7 +22,7 @@ import pytest
 import redis
 from testcontainers.redis import RedisContainer
 
-from outpost.cache import (
+from watchpost.cache import (
     Cache,
     CacheEntry,
     CacheKey,

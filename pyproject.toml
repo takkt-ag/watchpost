@@ -1,5 +1,5 @@
 [project]
-name = "outpost"
+name = "watchpost"
 version = "0.1.0"
 description = "Code driven monitoring checks for Checkmk"
 readme = "README.md"
@@ -24,7 +24,7 @@ redis = [
 ]
 
 [project.scripts]
-outpost = "outpost.cli:main"
+watchpost = "watchpost.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]

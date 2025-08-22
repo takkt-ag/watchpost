@@ -16,7 +16,7 @@
 
 import inspect
 
-from outpost.utils import InvocationInformation, get_invocation_information
+from watchpost.utils import InvocationInformation, get_invocation_information
 
 
 def return_invocation_information():

@@ -21,12 +21,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from outpost.app import Outpost
-from outpost.check import check
-from outpost.datasource import Datasource
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
-from outpost.hostname import (
+from watchpost.app import Watchpost
+from watchpost.check import check
+from watchpost.datasource import Datasource
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
+from watchpost.hostname import (
     CompositeStrategy,
     FunctionStrategy,
     HostnameContext,
@@ -37,20 +37,20 @@ from outpost.hostname import (
     resolve_hostname,
     to_strategy,
 )
-from outpost.result import ok, warn
+from watchpost.result import ok, warn
 
 
 class TestDatasource(Datasource):
     pass
 
 
-def _mk_outpost(
+def _mk_watchpost(
     *,
     hostname: str | None = None,
     fallback_to_default_hostname_generation: bool = True,
     coerce_into_valid_hostname: bool = True,
-) -> Outpost:
-    return Outpost(
+) -> Watchpost:
+    return Watchpost(
         checks=[],
         execution_environment=Environment("exec-env"),
         executor=BlockingCheckExecutor(),
@@ -60,7 +60,7 @@ def _mk_outpost(
     )
 
 
-def test_precedence_result_overrides_check_env_outpost():
+def test_precedence_result_overrides_check_env_watchpost():
     env = Environment("prod", hostname="env-{environment.name}")
 
     @check(
@@ -74,10 +74,10 @@ def test_precedence_result_overrides_check_env_outpost():
         _ = test
         return ok("x", alternative_hostname="result-host")
 
-    app = _mk_outpost(hostname="op-{service_name}")
+    app = _mk_watchpost(hostname="op-{service_name}")
 
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -85,7 +85,7 @@ def test_precedence_result_overrides_check_env_outpost():
     assert results[0].piggyback_host == "result-host"
 
 
-def test_precedence_check_over_env_and_outpost():
+def test_precedence_check_over_env_and_watchpost():
     env = Environment("prod", hostname="env-{environment.name}")
 
     @check(
@@ -99,9 +99,9 @@ def test_precedence_check_over_env_and_outpost():
         _ = test
         return ok("x")
 
-    app = _mk_outpost(hostname="op-{service_name}")
+    app = _mk_watchpost(hostname="op-{service_name}")
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -109,7 +109,7 @@ def test_precedence_check_over_env_and_outpost():
     assert results[0].piggyback_host == "check-host"
 
 
-def test_precedence_env_over_outpost():
+def test_precedence_env_over_watchpost():
     env = Environment("prod", hostname="env-{environment.name}")
 
     @check(
@@ -122,9 +122,9 @@ def test_precedence_env_over_outpost():
         _ = test
         return ok("x")
 
-    app = _mk_outpost(hostname="op-{service_name}")
+    app = _mk_watchpost(hostname="op-{service_name}")
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -132,7 +132,7 @@ def test_precedence_env_over_outpost():
     assert results[0].piggyback_host == "env-prod"
 
 
-def test_outpost_level_strategy_used_when_no_others():
+def test_watchpost_level_strategy_used_when_no_others():
     env = Environment("prod")
 
     @check(
@@ -145,9 +145,9 @@ def test_outpost_level_strategy_used_when_no_others():
         _ = test
         return ok("x")
 
-    app = _mk_outpost(hostname="{service_name}-{environment.name}")
+    app = _mk_watchpost(hostname="{service_name}-{environment.name}")
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -169,9 +169,9 @@ def test_template_fields_available():
         _ = test
         return ok("x")
 
-    app = _mk_outpost()
+    app = _mk_watchpost()
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -195,9 +195,9 @@ def test_multi_result_per_result_overrides():
             warn("w2", alternative_hostname="h2"),
         ]
 
-    app = _mk_outpost()
+    app = _mk_watchpost()
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -225,9 +225,9 @@ def test_non_strict_falls_back_when_unresolved():
         _ = test
         return ok("x")
 
-    app = _mk_outpost()
+    app = _mk_watchpost()
     results = my_check.run_sync(
-        outpost=app,
+        watchpost=app,
         environment=env,
         datasources={"test": TestDatasource()},
     )
@@ -255,10 +255,10 @@ def test_exception_in_strategy_is_wrapped():
         _ = test
         return ok("x")
 
-    app = _mk_outpost()
+    app = _mk_watchpost()
     with pytest.raises(HostnameResolutionError) as ei:
         _ = my_check.run_sync(
-            outpost=app,
+            watchpost=app,
             environment=env,
             datasources={"test": TestDatasource()},
         )
@@ -345,7 +345,7 @@ def test_resolve_hostname_uses_final_fallback_when_strict_and_none_other():
     def my_check():
         return ok("x")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[],
         execution_environment=Environment("exec-env"),
         executor=BlockingCheckExecutor(),
@@ -360,7 +360,7 @@ def test_resolve_hostname_uses_final_fallback_when_strict_and_none_other():
     assert ctx_check.hostname_strategy is None
 
     resolved = resolve_hostname(
-        outpost=app,
+        watchpost=app,
         environment=env,
         check=ctx_check,
         result=result,

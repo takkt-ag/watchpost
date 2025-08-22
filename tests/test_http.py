@@ -18,13 +18,13 @@ from unittest.mock import patch
 
 from starlette.testclient import TestClient
 
-from outpost import Datasource
-from outpost.app import Outpost
-from outpost.check import check
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor, CheckExecutor
-from outpost.http import routes
-from outpost.result import ok
+from watchpost import Datasource
+from watchpost.app import Watchpost
+from watchpost.check import check
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor, CheckExecutor
+from watchpost.http import routes
+from watchpost.result import ok
 
 from .utils import decode_checkmk_output
 
@@ -32,7 +32,7 @@ TEST_ENVIRONMENT = Environment("test-env")
 
 
 def test_healthcheck():
-    app = Outpost(
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -46,7 +46,7 @@ def test_healthcheck():
 
 def test_executor_statistics():
     """Test that the executor statistics endpoint returns the expected statistics."""
-    app = Outpost(
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -76,7 +76,7 @@ def test_executor_statistics():
 def test_executor_errored():
     """Test that the executor errored endpoint returns the expected error information."""
     # Create a mock check
-    app = Outpost(
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -99,15 +99,15 @@ def test_executor_errored():
 
 def test_root():
     """Test that the root endpoint returns a streaming response with check results."""
-    app = Outpost(
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
     expected_output = [
         b"<<<check_mk>>>\n",
-        b"Version: outpost-unknown\n",
-        b"AgentOS: outpost\n",
+        b"Version: watchpost-unknown\n",
+        b"AgentOS: watchpost\n",
     ]
 
     with patch.object(app, "run_checks", return_value=expected_output):
@@ -131,7 +131,7 @@ def test_root_with_real_check():
     def simple_check():
         return ok("Simple check passed")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[simple_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -144,10 +144,10 @@ def test_root_with_real_check():
     assert response.headers["content-type"].startswith("text/plain")
 
     assert b"<<<check_mk>>>" in response.content
-    assert b"Version: outpost-unknown" in response.content
-    assert b"AgentOS: outpost" in response.content
+    assert b"Version: watchpost-unknown" in response.content
+    assert b"AgentOS: watchpost" in response.content
 
-    assert b"<<<outpost>>>" in response.content
+    assert b"<<<watchpost>>>" in response.content
     assert b"simple-check" in response.content
 
     checkmk_output = decode_checkmk_output(response.content)
@@ -192,7 +192,7 @@ def test_root_with_real_check_and_datasource():
     def simple_check(test_datasource: TestDatasource):
         return ok(f"Simple check passed, got {type(test_datasource)}")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[simple_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -206,10 +206,10 @@ def test_root_with_real_check_and_datasource():
     assert response.headers["content-type"].startswith("text/plain")
 
     assert b"<<<check_mk>>>" in response.content
-    assert b"Version: outpost-unknown" in response.content
-    assert b"AgentOS: outpost" in response.content
+    assert b"Version: watchpost-unknown" in response.content
+    assert b"AgentOS: watchpost" in response.content
 
-    assert b"<<<outpost>>>" in response.content
+    assert b"<<<watchpost>>>" in response.content
     assert b"simple-check" in response.content
 
     checkmk_output = decode_checkmk_output(response.content)

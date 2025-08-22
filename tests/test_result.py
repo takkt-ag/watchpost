@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from outpost.result import CheckState, build_result, crit
+from watchpost.result import CheckState, build_result, crit
 
 
 def test_no_results_is_ok():

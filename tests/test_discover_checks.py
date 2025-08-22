@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from outpost.discover_checks import DiscoveryError, discover_checks
+from watchpost.discover_checks import DiscoveryError, discover_checks
 
 
 @pytest.fixture()
@@ -53,8 +53,8 @@ def temp_pkg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     # Common helper for modules that define a Check
     check_module_src = (
-        "from outpost.check import check\n"
-        "from outpost.environment import Environment\n"
+        "from watchpost.check import check\n"
+        "from watchpost.environment import Environment\n"
         "env = Environment('e')\n"
         "@check(name='svc_{tag}', service_labels={{}}, environments=[env], cache_for=None)\n"
         "def {name}():\n"

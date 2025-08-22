@@ -55,7 +55,7 @@ _D = TypeVar("_D", bound=Datasource)
 _DF = TypeVar("_DF", bound=DatasourceFactory)
 
 
-class Outpost:
+class Watchpost:
     def __init__(
         self,
         *,
@@ -129,7 +129,7 @@ class Outpost:
             return await self._starlette(scope, receive, send)
 
     @contextmanager
-    def app_context(self) -> Generator[Outpost]:
+    def app_context(self) -> Generator[Watchpost]:
         try:
             _cv.get()
             yield self
@@ -157,10 +157,10 @@ class Outpost:
 
     def _generate_checkmk_agent_output(self) -> Generator[bytes]:
         yield b"<<<check_mk>>>\n"
-        yield b"Version: outpost-"
+        yield b"Version: watchpost-"
         yield self.version.encode("utf-8")
         yield b"\n"
-        yield b"AgentOS: outpost\n"
+        yield b"AgentOS: watchpost\n"
 
     def _generate_synthetic_result_outputs(self) -> Generator[bytes]:
         def run_checks() -> ExecutionResult:
@@ -343,7 +343,7 @@ class Outpost:
                                     check,
                                     (
                                         f"Check requires the following arguments: {', '.join(expected_kwarg_keys)}\n"
-                                        f"Outpost can only provide: {', '.join(available_kwarg_keys)}"
+                                        f"Watchpost can only provide: {', '.join(available_kwarg_keys)}"
                                     ),
                                 )
                             )
@@ -382,7 +382,7 @@ class Outpost:
         executor = custom_executor or self.executor
 
         piggyback_host = resolve_hostname(
-            outpost=self,
+            watchpost=self,
             environment=environment,
             check=check,
             result=None,
@@ -439,7 +439,7 @@ class Outpost:
                 key=executor_key,
                 func=check.run_async if check.is_async else check.run_sync,
                 resubmit=check.cache_for is None,
-                outpost=self,
+                watchpost=self,
                 environment=environment,
                 datasources=datasources,
             )

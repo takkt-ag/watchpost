@@ -320,58 +320,6 @@ wheels = [
 ]
 
 [[package]]
-name = "outpost"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "starlette" },
-    { name = "timelength" },
-]
-
-[package.optional-dependencies]
-cli = [
-    { name = "click" },
-    { name = "rich" },
-]
-redis = [
-    { name = "redis" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "lefthook" },
-    { name = "licensecheck" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "testcontainers", extra = ["redis"] },
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", marker = "extra == 'cli'", specifier = ">=8.2.1" },
-    { name = "redis", marker = "extra == 'redis'", specifier = ">=6.4.0" },
-    { name = "rich", marker = "extra == 'cli'", specifier = ">=14.1.0" },
-    { name = "starlette", specifier = ">=0.47.2" },
-    { name = "timelength", specifier = ">=3.0.2" },
-]
-provides-extras = ["cli", "redis"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "lefthook", specifier = ">=1.12.2" },
-    { name = "licensecheck", specifier = ">=2025.1.0" },
-    { name = "mypy", specifier = ">=1.17.1" },
-    { name = "pytest", specifier = ">=8.4.1" },
-    { name = "ruff", specifier = ">=0.12.7" },
-    { name = "testcontainers", extras = ["redis"], specifier = ">=4.12.0" },
-    { name = "ty", specifier = ">=0.0.1a17" },
-]
-
-[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -694,6 +642,58 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/49/ea/55a0eff462b2ec5a6327dd87c401c53306406c830fa8f2cabd2af79dd97f/uv-0.8.8-py3-none-win32.whl", hash = "sha256:65113735aa3427d3897e2f537da1331d1391735c6eecb9b820da6a15fd2f6738", size = 18244601, upload-time = "2025-08-09T00:25:53.696Z" },
     { url = "https://files.pythonhosted.org/packages/bf/c0/f56ddb1b2276405618e3d2522018c962c010fc71f97f385d01b7e1dcd8df/uv-0.8.8-py3-none-win_amd64.whl", hash = "sha256:66189ca0b4051396aa19a6f036351477656073d0fd01618051faca699e1b3cdc", size = 20233481, upload-time = "2025-08-09T00:25:56.247Z" },
     { url = "https://files.pythonhosted.org/packages/ac/1a/70dc4c730c19f3af40be9450b98b801e03cd6d16609743013f7258f69a29/uv-0.8.8-py3-none-win_arm64.whl", hash = "sha256:1d829486e88ebbf7895306ff09a8b6014d3af7a18e27d751979ee37bf3a27832", size = 18786215, upload-time = "2025-08-09T00:25:58.941Z" },
+]
+
+[[package]]
+name = "watchpost"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "starlette" },
+    { name = "timelength" },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "click" },
+    { name = "rich" },
+]
+redis = [
+    { name = "redis" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "httpx" },
+    { name = "lefthook" },
+    { name = "licensecheck" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "testcontainers", extra = ["redis"] },
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", marker = "extra == 'cli'", specifier = ">=8.2.1" },
+    { name = "redis", marker = "extra == 'redis'", specifier = ">=6.4.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=14.1.0" },
+    { name = "starlette", specifier = ">=0.47.2" },
+    { name = "timelength", specifier = ">=3.0.2" },
+]
+provides-extras = ["cli", "redis"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "lefthook", specifier = ">=1.12.2" },
+    { name = "licensecheck", specifier = ">=2025.1.0" },
+    { name = "mypy", specifier = ">=1.17.1" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "ruff", specifier = ">=0.12.7" },
+    { name = "testcontainers", extras = ["redis"], specifier = ">=4.12.0" },
+    { name = "ty", specifier = ">=0.0.1a17" },
 ]
 
 [[package]]

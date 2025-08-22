@@ -200,7 +200,8 @@ class BlockingCheckExecutor[T](CheckExecutor[T]):
     as tests or in the CLI.
 
     PLEASE DO NOT USE THIS EXECUTOR UNLESS YOU KNOW WHAT YOU ARE DOING! All
-    regular uses of Outpost should make use of the default `CheckExecutor` class.
+    regular uses of Watchpost should make use of the default `CheckExecutor`
+    class.
     """
 
     def __init__(

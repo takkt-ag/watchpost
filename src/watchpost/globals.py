@@ -14,22 +14,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .app import Outpost
-from .check import check
-from .datasource import Datasource
-from .environment import Environment
-from .globals import current_app
-from .result import build_result, crit, ok, unknown, warn
+from __future__ import annotations
 
-__all__ = [
-    "Datasource",
-    "Environment",
-    "Outpost",
-    "build_result",
-    "check",
-    "crit",
-    "current_app",
-    "ok",
-    "unknown",
-    "warn",
-]
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, cast
+
+from .vendored.local_proxy import LocalProxy
+
+if TYPE_CHECKING:
+    from .app import Watchpost
+
+_no_app_message = """\
+Watchpost application is not available.
+
+Are you interacting with '{local}' in the context of the running Watchpost application?
+"""
+
+_cv: ContextVar = ContextVar("watchpost_context")
+current_app: Watchpost = cast(
+    "Watchpost",
+    LocalProxy(
+        local=_cv,
+        unbound_message=_no_app_message.format(local="current_app"),
+    ),
+)

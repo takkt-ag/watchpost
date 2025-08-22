@@ -16,11 +16,11 @@
 
 from typing import Annotated
 
-from outpost import Outpost, current_app
-from outpost.check import check
-from outpost.datasource import Datasource, DatasourceFactory, FromFactory
-from outpost.environment import Environment
-from outpost.result import CheckResult, ok
+from watchpost import Watchpost, current_app
+from watchpost.check import check
+from watchpost.datasource import Datasource, DatasourceFactory, FromFactory
+from watchpost.environment import Environment
+from watchpost.result import CheckResult, ok
 
 from . import checks
 
@@ -78,7 +78,7 @@ async def async_dummy_check_function(
     return ok("This is an async check result.")
 
 
-app = Outpost(
+app = Watchpost(
     checks=[
         # Direct reference to a synchronous check function
         dummy_check_function,

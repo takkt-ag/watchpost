@@ -28,7 +28,7 @@ def decode_checkmk_output(output: str | bytes) -> list[dict[str, Any]]:
     Decode base64 encoded JSON data from Checkmk output.
 
     This utility function extracts and decodes the base64 encoded JSON data
-    that is contained between the outpost markers in Checkmk output.
+    that is contained between the watchpost markers in Checkmk output.
 
     Args:
         output: The Checkmk output as a string or bytes
@@ -46,8 +46,8 @@ def decode_checkmk_output(output: str | bytes) -> list[dict[str, Any]]:
     else:
         output_str = output
 
-    # Find all base64 encoded parts between the outpost markers
-    pattern = re.compile(r"<<<outpost>>>\n(.*?)\n<<<<", re.DOTALL)
+    # Find all base64 encoded parts between the watchpost markers
+    pattern = re.compile(r"<<<watchpost>>>\n(.*?)\n<<<<", re.DOTALL)
     matches = pattern.finditer(output_str)
 
     # Decode each match

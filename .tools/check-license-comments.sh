@@ -28,7 +28,7 @@ ERRORS=0
 # Check regular files
 while read -r -d $'\0' file
 do
-  if [[ "$file" == src/outpost/vendored/* ]]; then
+  if [[ "$file" == src/watchpost/vendored/* ]]; then
     # Skip vendored files, they will be checked separately
     continue
   fi
@@ -60,8 +60,8 @@ do
   fi
 done < <(\
   git ls-files -z -- \
-    'src/outpost/vendored/*.py' \
-    'src/outpost/vendored/*.sh' \
+    'src/watchpost/vendored/*.py' \
+    'src/watchpost/vendored/*.sh' \
 )
 
 if [[ "$ERRORS" -gt 0 ]]; then

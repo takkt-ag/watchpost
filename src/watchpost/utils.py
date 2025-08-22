@@ -21,7 +21,7 @@ from pathlib import Path
 
 from timelength import TimeLength  # type: ignore
 
-import outpost
+import watchpost
 
 
 @dataclass
@@ -49,15 +49,15 @@ def get_invocation_information() -> InvocationInformation | None:
     if not relevant_module:
         return None
 
-    if not outpost.__file__ or not relevant_module.__file__:
+    if not watchpost.__file__ or not relevant_module.__file__:
         return None
 
-    # FIXME: determining the root_directory will need rework. The outpost
+    # FIXME: determining the root_directory will need rework. The Watchpost
     #        package might not be relative to the user's project root at all,
     #        always resulting in an absolute path. We should either just go for
     #        the absolute path here regardless, or allow the user to provide a
     #        root directory to calculate the relative path from.
-    root_directory = Path(outpost.__file__).parent.parent.parent
+    root_directory = Path(watchpost.__file__).parent.parent.parent
 
     relevant_module_path = Path(relevant_module.__file__)
 

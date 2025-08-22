@@ -20,15 +20,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from outpost.app import Outpost
-from outpost.cache import CacheEntry, CacheKey, InMemoryStorage
-from outpost.check import Check, check
-from outpost.datasource import Datasource, DatasourceUnavailable
-from outpost.environment import Environment
-from outpost.executor import BlockingCheckExecutor
-from outpost.globals import current_app
-from outpost.result import CheckState, ExecutionResult, ok
-from outpost.scheduling_strategy import InvalidCheckConfiguration
+from watchpost.app import Watchpost
+from watchpost.cache import CacheEntry, CacheKey, InMemoryStorage
+from watchpost.check import Check, check
+from watchpost.datasource import Datasource, DatasourceUnavailable
+from watchpost.environment import Environment
+from watchpost.executor import BlockingCheckExecutor
+from watchpost.globals import current_app
+from watchpost.result import CheckState, ExecutionResult, ok
+from watchpost.scheduling_strategy import InvalidCheckConfiguration
 
 from .utils import decode_checkmk_output
 
@@ -39,33 +39,33 @@ class TestDatasource(Datasource):
     pass
 
 
-def test_outpost_initialization():
-    """Test that an Outpost object can be properly initialized."""
+def test_watchpost_initialization():
+    """Test that an Watchpost object can be properly initialized."""
     # Create a mock check
     mock_check = MagicMock(spec=Check)
 
-    # Initialize the Outpost object
-    app = Outpost(
+    # Initialize the Watchpost object
+    app = Watchpost(
         checks=[mock_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
-    # Verify the Outpost object was initialized correctly
+    # Verify the Watchpost object was initialized correctly
     assert app.checks == [mock_check]
 
 
 def test_app_context():
     """Test that the app_context method properly sets and resets the context variable."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
     )
 
     # Before entering the context, current_app should raise an error
-    with pytest.raises(RuntimeError, match="Outpost application is not available"):
+    with pytest.raises(RuntimeError, match="Watchpost application is not available"):
         _ = current_app.__name__  # type: ignore[unresolved-attribute]
 
     # Within the context, current_app should be the app instance
@@ -73,14 +73,14 @@ def test_app_context():
         assert current_app._get_current_object() is app  # type: ignore[unresolved-attribute]
 
     # After exiting the context, current_app should raise an error again
-    with pytest.raises(RuntimeError, match="Outpost application is not available"):
+    with pytest.raises(RuntimeError, match="Watchpost application is not available"):
         _ = current_app.__name__  # type: ignore[unresolved-attribute]
 
 
 def test_app_context_exception_handling():
     """Test that the app_context method properly handles exceptions."""
-    # Create an Outpost instance
-    app = Outpost(
+    # Create an Watchpost instance
+    app = Watchpost(
         checks=[],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -95,7 +95,7 @@ def test_app_context_exception_handling():
         pass
 
     # After the exception, current_app should raise an error
-    with pytest.raises(RuntimeError, match="Outpost application is not available"):
+    with pytest.raises(RuntimeError, match="Watchpost application is not available"):
         _ = current_app.__name__  # type: ignore[unresolved-attribute]
 
 
@@ -119,8 +119,8 @@ def test_run_checks_once():
     )
     mock_check.run_sync.return_value = [execution_result]
 
-    # Initialize the Outpost object
-    app = Outpost(
+    # Initialize the Watchpost object
+    app = Watchpost(
         checks=[mock_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -187,8 +187,8 @@ def test_run_checks_once_with_multiple_checks():
     )
     mock_check2.run_sync.return_value = [execution_result2]
 
-    # Initialize the Outpost object with both checks
-    app = Outpost(
+    # Initialize the Watchpost object with both checks
+    app = Watchpost(
         checks=[mock_check1, mock_check2],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -213,7 +213,7 @@ def test_run_checks_once_with_multiple_checks():
         # Decode the base64 data using the utility function
         json_data_list = decode_checkmk_output(all_data)
 
-        # Verify we found three results (our two and the one default outpost check)
+        # Verify we found three results (our two and the one default watchpost check)
         assert len(json_data_list) == 3
 
         # Verify the first result
@@ -252,8 +252,8 @@ def test_run_checks_once_with_real_check():
         cache_for=None,
     )
 
-    # Initialize the Outpost object
-    app = Outpost(
+    # Initialize the Watchpost object
+    app = Watchpost(
         checks=[check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -292,11 +292,11 @@ def test_ensure_current_app_is_set_in_check():
     def check_func(test_datasource: TestDatasource):
         _ = test_datasource
 
-        from outpost.globals import current_app
+        from watchpost.globals import current_app
 
         return ok(repr(current_app))
 
-    app = Outpost(
+    app = Watchpost(
         checks=[check_func],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -335,7 +335,7 @@ def test_ensure_current_app_is_set_in_check():
 
 
 def test_run_checks_skip_without_prior_results_returns_unknown():
-    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+    from watchpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
 
     class AlwaysSkipStrategy(SchedulingStrategy):
         @override
@@ -351,7 +351,7 @@ def test_run_checks_skip_without_prior_results_returns_unknown():
     def my_check():
         raise AssertionError("Should not be executed when SKIP without prior results")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -371,7 +371,7 @@ def test_run_checks_skip_without_prior_results_returns_unknown():
 
 
 def test_run_checks_skip_with_prior_results_reuses_cache():
-    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+    from watchpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
 
     class AlwaysSkipStrategy(SchedulingStrategy):
         @override
@@ -387,7 +387,7 @@ def test_run_checks_skip_with_prior_results_reuses_cache():
     def my_check():
         raise AssertionError("Should not be executed when cache exists and SKIP")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -427,7 +427,7 @@ def test_run_checks_reuses_cached_results_under_schedule():
         call_count["n"] += 1
         return ok(f"Run {call_count['n']}")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -457,7 +457,7 @@ def test_run_checks_reuses_cached_results_under_schedule():
 
 
 def test_run_checks_dont_schedule_produces_no_results():
-    from outpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
+    from watchpost.scheduling_strategy import SchedulingDecision, SchedulingStrategy
 
     class AlwaysDontScheduleStrategy(SchedulingStrategy):
         @override
@@ -473,7 +473,7 @@ def test_run_checks_dont_schedule_produces_no_results():
     def my_check():
         raise AssertionError("Should not be executed when DONT_SCHEDULE")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -502,7 +502,7 @@ def test_datasource_unavailable_without_cache_returns_unknown():
     def failing_check():
         raise DatasourceUnavailable("temporary outage")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[failing_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -538,7 +538,7 @@ def test_datasource_unavailable_with_expired_cache_returns_enriched_cached_resul
             return ok("Cached ok")
         raise DatasourceUnavailable("backend down")
 
-    app = Outpost(
+    app = Watchpost(
         checks=[flaky_check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -578,7 +578,7 @@ def _prepare_expired_cache_entry(
     value: list[ExecutionResult],
 ) -> None:
     entry = CacheEntry[list[ExecutionResult]](
-        cache_key=CacheKey(key=key, package="outpost"),
+        cache_key=CacheKey(key=key, package="watchpost"),
         value=value,
         added_at=datetime.now(tz=UTC) - timedelta(minutes=5),
         ttl=timedelta(seconds=1),
@@ -589,7 +589,7 @@ def _prepare_expired_cache_entry(
 def test_cache_is_used_only_if_no_fresh_results_available():
     # Arrange: a blocking executor makes fresh results deterministically available
     env = Environment("blocking-env")
-    outpost_env = Environment("outpost-env")
+    watchpost_env = Environment("watchpost-env")
 
     storage = InMemoryStorage()
 
@@ -616,9 +616,9 @@ def test_cache_is_used_only_if_no_fresh_results_available():
     ]
     _prepare_expired_cache_entry(storage, cache_key, cached_results)
 
-    app = Outpost(
+    app = Watchpost(
         checks=[my_check],
-        execution_environment=outpost_env,
+        execution_environment=watchpost_env,
         executor=BlockingCheckExecutor(),
         version="test",
         check_cache_storage=storage,
@@ -637,7 +637,7 @@ def test_cache_is_used_only_if_no_fresh_results_available():
 
 
 def test_verify_check_scheduling_reports_missing_required_kwargs() -> None:
-    # Define a check function that declares a parameter which Outpost cannot provide
+    # Define a check function that declares a parameter which Watchpost cannot provide
     # (it's not an Environment nor a Datasource-typed argument)
     def my_check(foo: int):
         _ = foo
@@ -651,7 +651,7 @@ def test_verify_check_scheduling_reports_missing_required_kwargs() -> None:
         cache_for=None,
     )
 
-    app = Outpost(
+    app = Watchpost(
         checks=[check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),
@@ -683,7 +683,7 @@ def test_verify_check_scheduling_wraps_datasource_resolution_errors() -> None:
     # Define a datasource type that is NOT registered with the app
 
     # The check requires the unregistered datasource, which should cause
-    # Outpost._resolve_datasources to raise a ValueError.
+    # Watchpost._resolve_datasources to raise a ValueError.
     def needs_missing_ds(ds: MissingDatasource):
         _ = ds
         return ok("won't run")
@@ -696,7 +696,7 @@ def test_verify_check_scheduling_wraps_datasource_resolution_errors() -> None:
         cache_for=None,
     )
 
-    app = Outpost(
+    app = Watchpost(
         checks=[check],
         execution_environment=TEST_ENVIRONMENT,
         executor=BlockingCheckExecutor(),

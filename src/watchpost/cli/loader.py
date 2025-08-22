@@ -18,20 +18,20 @@ import importlib
 import os
 import sys
 
-from ..app import Outpost
+from ..app import Watchpost
 
 
 class AppNotFound(Exception):
     """Custom exception for when the app cannot be found."""
 
 
-def find_app(app_str: str | None) -> Outpost:
+def find_app(app_str: str | None) -> Watchpost:
     """
-    Finds and loads the Outpost app instance.
+    Finds and loads the Watchpost app instance.
 
     The search order is:
     1. The `app_str` argument if provided (e.g., 'my_module:app').
-    2. Convention: look for an `Outpost` instance named `app` in `outpost.py`,
+    2. Convention: look for a `Watchpost` instance named `app` in `watchpost.py`,
        then `app.py`, then `main.py` in the current directory.
     """
     if app_str:
@@ -40,7 +40,7 @@ def find_app(app_str: str | None) -> Outpost:
     return _load_from_convention()
 
 
-def _load_from_string(app_str: str) -> Outpost:
+def _load_from_string(app_str: str) -> Watchpost:
     """Loads an app from a string like 'module:variable'."""
     if ":" not in app_str:
         raise AppNotFound(
@@ -59,16 +59,16 @@ def _load_from_string(app_str: str) -> Outpost:
     finally:
         sys.path.pop(0)
 
-    if not isinstance(app, Outpost):
+    if not isinstance(app, Watchpost):
         raise AppNotFound(
-            f"The object '{app_instance_str}' in '{module_str}' is not an Outpost instance."
+            f"The object '{app_instance_str}' in '{module_str}' is not an Watchpost instance."
         )
     return app
 
 
-def _load_from_convention() -> Outpost:
+def _load_from_convention() -> Watchpost:
     """Tries to find the app by convention."""
-    for filename in ("outpost.py", "app.py", "main.py"):
+    for filename in ("watchpost.py", "app.py", "main.py"):
         if os.path.exists(filename):
             module_name = filename[:-3]
             try:
@@ -77,6 +77,6 @@ def _load_from_convention() -> Outpost:
             except AppNotFound:
                 continue
     raise AppNotFound(
-        "Could not find an Outpost app. Either provide the app location with "
-        "--app <module:instance> or the OUTPOST_APP environment variable."
+        "Could not find an Watchpost app. Either provide the app location with "
+        "--app <module:instance> or the WATCHPOST_APP environment variable."
     )

@@ -359,7 +359,7 @@ def normalize_check_function_result(
                 check_state=CheckState.UNKNOWN,
                 summary="CHECK CODE ERROR: no results returned",
                 details=(
-                    "The outpost check function returned no results. Please verify "
+                    "The watchpost check function returned no results. Please verify "
                     "the code of this check if there is a circumstance in which it "
                     "does not return any results, and remediate this."
                 ),
@@ -385,7 +385,7 @@ class ExecutionResult:
         yield b"<<<<"
         yield self.piggyback_host.encode("utf-8")
         yield b">>>>\n"
-        yield b"<<<outpost>>>\n"
+        yield b"<<<watchpost>>>\n"
 
         result: dict[str, Any] = {
             "service_name": self.service_name,
