@@ -49,12 +49,18 @@ def display_results_table(results: Iterable[ExecutionResult]) -> None:
     with Live(table, console=console, vertical_overflow="visible"):
         for result in results:
             state_style = STATE_STYLES.get(result.check_state, "default")
+
+            summary = result.summary
+            if result.details:
+                summary = f"{summary.strip()}\n\n{result.details}"
+
             table.add_row(
                 f"[{state_style}]{result.check_state.name}[/]",
                 result.environment_name,
                 result.service_name,
-                result.summary,
+                summary.strip(),
             )
+            table.add_section()
 
 
 @click.group()  # type: ignore[misc]
