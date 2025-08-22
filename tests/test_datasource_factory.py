@@ -14,6 +14,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import logging
 from typing import Annotated, cast
 
@@ -48,16 +50,26 @@ class ConfigurableTestDatasource(Datasource):
 class TestFactory(DatasourceFactory):
     __test__ = False
 
-    def new(self, service: str) -> Datasource:
+    @staticmethod
+    def new(service: str) -> Datasource:
         return ConfigurableTestDatasource(f"factory-created-{service}")
 
 
 class ParameterizedTestFactory(DatasourceFactory):
-    def __init__(self):
-        self.prefix = "default-prefix"
+    prefix = "default-prefix"
 
-    def new(self, service: str, region: str = "default-region") -> Datasource:
-        return ConfigurableTestDatasource(f"{self.prefix}-{service}-{region}")
+    @classmethod
+    def new(cls, service: str, region: str = "default-region") -> Datasource:
+        return ConfigurableTestDatasource(f"{cls.prefix}-{service}-{region}")
+
+
+class DatasourceWithFactory(Datasource, DatasourceFactory):
+    def __init__(self, value: str):
+        self.value = value
+
+    @classmethod
+    def new(cls, value: str) -> DatasourceWithFactory:
+        return cls(value)
 
 
 def test_register_datasource_factory() -> None:
@@ -74,7 +86,6 @@ def test_register_datasource_factory() -> None:
 
     # Verify the factory was registered
     assert TestFactory in app._datasource_factories
-    assert isinstance(app._datasource_factories[TestFactory], TestFactory)
 
 
 def test_resolve_datasource_from_factory() -> None:
@@ -93,7 +104,9 @@ def test_resolve_datasource_from_factory() -> None:
     from_factory = FromFactory(TestFactory, "test-service")
 
     # Resolve the datasource
-    datasource = app._resolve_datasource_from_factory(from_factory)
+    datasource = app._resolve_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory
+    )
 
     # Verify the datasource was resolved correctly
     assert isinstance(datasource, ConfigurableTestDatasource)
@@ -116,8 +129,12 @@ def test_resolve_datasource_from_factory_caching() -> None:
     from_factory = FromFactory(TestFactory, "test-service")
 
     # Resolve the datasource twice
-    datasource1 = app._resolve_datasource_from_factory(from_factory)
-    datasource2 = app._resolve_datasource_from_factory(from_factory)
+    datasource1 = app._resolve_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory
+    )
+    datasource2 = app._resolve_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory
+    )
 
     # Verify that the same instance was returned both times
     assert datasource1 is datasource2
@@ -142,11 +159,11 @@ def test_resolve_datasource_from_factory_with_different_args() -> None:
     # Resolve the datasources
     datasource1: ConfigurableTestDatasource = cast(
         ConfigurableTestDatasource,
-        app._resolve_datasource_from_factory(from_factory1),
+        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory1),
     )
     datasource2: ConfigurableTestDatasource = cast(
         ConfigurableTestDatasource,
-        app._resolve_datasource_from_factory(from_factory2),
+        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory2),
     )
 
     # Verify that different instances were returned
@@ -173,7 +190,9 @@ def test_resolve_datasource_from_factory_with_kwargs() -> None:
     )
 
     # Resolve the datasource
-    datasource = app._resolve_datasource_from_factory(from_factory)
+    datasource = app._resolve_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory
+    )
 
     # Verify the datasource was resolved correctly
     assert isinstance(datasource, ConfigurableTestDatasource)
@@ -194,7 +213,7 @@ def test_factory_not_registered() -> None:
 
     # Attempt to resolve the datasource
     with pytest.raises(ValueError, match="No datasource factory for"):
-        app._resolve_datasource_from_factory(from_factory)
+        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory)
 
 
 def test_check_with_factory_datasource() -> None:
@@ -229,7 +248,8 @@ def test_check_with_factory_datasource() -> None:
         outpost=app,
         datasources={
             "datasource": app._resolve_datasource_from_factory(
-                FromFactory(TestFactory, "test-service")
+                ConfigurableTestDatasource,
+                FromFactory(TestFactory, "test-service"),
             ),
         },
         environment=TEST_ENVIRONMENT,
@@ -277,10 +297,12 @@ def test_check_with_multiple_factory_datasources() -> None:
         outpost=app,
         datasources={
             "datasource1": app._resolve_datasource_from_factory(
-                FromFactory(TestFactory, "service1")
+                ConfigurableTestDatasource,
+                FromFactory(TestFactory, "service1"),
             ),
             "datasource2": app._resolve_datasource_from_factory(
-                FromFactory(TestFactory, "service2")
+                ConfigurableTestDatasource,
+                FromFactory(TestFactory, "service2"),
             ),
         },
         environment=TEST_ENVIRONMENT,
@@ -329,7 +351,8 @@ def test_check_with_mixed_datasources() -> None:
         datasources={
             "regular": TestDatasource(),
             "factory": app._resolve_datasource_from_factory(
-                FromFactory(TestFactory, "test-service")
+                ConfigurableTestDatasource,
+                FromFactory(TestFactory, "test-service"),
             ),
         },
         environment=TEST_ENVIRONMENT,
@@ -452,14 +475,14 @@ def test_fromfactory_cache_key() -> None:
     from_factory2 = FromFactory(TestFactory, "test-service")
 
     # Verify that they have the same cache key
-    assert from_factory1.cache_key == from_factory2.cache_key
+    assert from_factory1.cache_key(TestFactory) == from_factory2.cache_key(TestFactory)
 
     # Create two FromFactory instances with different args
     from_factory3 = FromFactory(TestFactory, "service1")
     from_factory4 = FromFactory(TestFactory, "service2")
 
     # Verify that they have different cache keys
-    assert from_factory3.cache_key != from_factory4.cache_key
+    assert from_factory3.cache_key(TestFactory) != from_factory4.cache_key(TestFactory)
 
     # Create two FromFactory instances with the same args but different kwargs
     from_factory5 = FromFactory(
@@ -470,7 +493,7 @@ def test_fromfactory_cache_key() -> None:
     )
 
     # Verify that they have different cache keys
-    assert from_factory5.cache_key != from_factory6.cache_key
+    assert from_factory5.cache_key(TestFactory) != from_factory6.cache_key(TestFactory)
 
 
 def test_annotated_with_non_fromfactory() -> None:
@@ -503,22 +526,26 @@ def test_annotated_with_non_fromfactory() -> None:
         app._resolve_datasources(check_obj)
 
 
+A = Environment("A")
+B = Environment("B")
+
+
+class OwnStrategyDatasource(Datasource):
+    scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(A),)
+
+
+class FactoryWithDifferentStrategy(DatasourceFactory):
+    # Factory provides a conflicting execution environment (B), but the
+    # datasource created by the factory defines its own strategy (A), which
+    # must take precedence.
+    scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
+
+    @staticmethod
+    def new(*_args, **_kwargs) -> Datasource:
+        return OwnStrategyDatasource()
+
+
 def test_factory_datasource_prefers_own_strategies_over_factory() -> None:
-    A = Environment("A")
-    B = Environment("B")
-
-    class OwnStrategyDatasource(Datasource):
-        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(A),)
-
-    class FactoryWithDifferentStrategy(DatasourceFactory):
-        # Factory provides a conflicting execution environment (B), but the
-        # datasource created by the factory defines its own strategy (A), which
-        # must take precedence.
-        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
-
-        def new(self, *_args, **_kwargs) -> Datasource:
-            return OwnStrategyDatasource()
-
     @check(
         name="factory-prefers-ds-own",
         service_labels={"test": "true"},
@@ -526,11 +553,7 @@ def test_factory_datasource_prefers_own_strategies_over_factory() -> None:
         cache_for=None,
     )
     def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithDifferentStrategy)]):
-        from outpost.result import ok
-
         return ok("unused")
-
-    from outpost.app import Outpost
 
     app = Outpost(
         checks=[my_check],
@@ -565,20 +588,20 @@ def test_factory_datasource_prefers_own_strategies_over_factory() -> None:
         assert not b_present
 
 
+class EllipsisDatasource(Datasource):
+    # No explicit strategies -> Ellipsis from base class
+    pass
+
+
+class FactoryWithStrategies(DatasourceFactory):
+    scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
+
+    @staticmethod
+    def new(*_args, **_kwargs) -> Datasource:
+        return EllipsisDatasource()
+
+
 def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
-    A = Environment("A")
-    B = Environment("B")
-
-    class EllipsisDatasource(Datasource):
-        # No explicit strategies -> Ellipsis from base class
-        pass
-
-    class FactoryWithStrategies(DatasourceFactory):
-        scheduling_strategies = (MustRunInGivenExecutionEnvironmentStrategy(B),)
-
-        def new(self, *_args, **_kwargs) -> Datasource:
-            return EllipsisDatasource()
-
     @check(
         name="factory-strategies-applied",
         service_labels={"test": "true"},
@@ -586,11 +609,7 @@ def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
         cache_for=None,
     )
     def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithStrategies)]):
-        from outpost.result import ok
-
         return ok("unused")
-
-    from outpost.app import Outpost
 
     # Executing from B should be allowed due to factory strategies
     app_b = Outpost(
@@ -617,20 +636,24 @@ def test_factory_strategies_applied_when_datasource_has_no_strategies() -> None:
         assert decision_a == SchedulingDecision.DONT_SCHEDULE
 
 
+ENV = Environment("env")
+
+
+class NoStrategyDatasource(Datasource):
+    # No explicit strategies -> Ellipsis from base class
+    pass
+
+
+class FactoryWithoutStrategies(DatasourceFactory):
+    # Explicitly define no strategies
+    scheduling_strategies = ()
+
+    @staticmethod
+    def new(*_args, **_kwargs) -> Datasource:
+        return NoStrategyDatasource()
+
+
 def test_factory_and_datasource_without_strategies_logs_no_warning(caplog) -> None:
-    ENV = Environment("env")
-
-    class NoStrategyDatasource(Datasource):
-        # No explicit strategies -> Ellipsis from base class
-        pass
-
-    class FactoryWithoutStrategies(DatasourceFactory):
-        # Explicitly define no strategies
-        scheduling_strategies = ()
-
-        def new(self, *_args, **_kwargs) -> Datasource:
-            return NoStrategyDatasource()
-
     @check(
         name="warning-when-no-strategies",
         service_labels={"test": "true"},
@@ -638,11 +661,7 @@ def test_factory_and_datasource_without_strategies_logs_no_warning(caplog) -> No
         cache_for=None,
     )
     def my_check(_ds: Annotated[Datasource, FromFactory(FactoryWithoutStrategies)]):
-        from outpost.result import ok
-
         return ok("unused")
-
-    from outpost.app import Outpost
 
     app = Outpost(
         checks=[my_check],
@@ -663,4 +682,107 @@ def test_factory_and_datasource_without_strategies_logs_no_warning(caplog) -> No
         "The factory-created datasource has no scheduling strategies defined"
         not in rec.message
         for rec in warnings
+    )
+
+
+def test_datasource_with_factory():
+    @check(
+        name="datasource-with-factory-with-type",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_with_factory_with_type(
+        ds: Annotated[
+            DatasourceWithFactory,
+            FromFactory(DatasourceWithFactory, "some-value-with-type"),
+        ],
+    ):
+        return ok(ds.value)
+
+    @check(
+        name="datasource-with-factory-without-type",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_with_factory_without_type(
+        ds: Annotated[DatasourceWithFactory, FromFactory("some-value-without-type")],
+    ):
+        return ok(ds.value)
+
+    @check(
+        name="datasource-with-factory-with-both",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_with_factory_with_both(
+        ds1: Annotated[
+            DatasourceWithFactory,
+            FromFactory("some-value-without-both"),
+        ],
+        ds2: Annotated[
+            DatasourceWithFactory,
+            FromFactory(DatasourceWithFactory, "some-value-without-both"),
+        ],
+    ):
+        return ok(f"{ds1 is ds2=}: {ds1.value} {ds2.value}")
+
+    app = Outpost(
+        checks=[
+            datasource_with_factory_without_type,
+            datasource_with_factory_with_type,
+            datasource_with_factory_with_both,
+        ],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource_factory(DatasourceWithFactory)
+
+    checkmk_output = decode_checkmk_output(b"".join(app.run_checks()))
+    for item in checkmk_output:
+        item.pop("check_definition", None)
+
+    assert len(checkmk_output) == 4
+    assert sorted(checkmk_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "service_name": "datasource-with-factory-without-type",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "some-value-without-type",
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "datasource-with-factory-with-type",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "some-value-with-type",
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "datasource-with-factory-with-both",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "ds1 is ds2=True: some-value-without-both some-value-without-both",
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "Run checks",
+                "service_labels": {},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Ran 3 checks",
+                "metrics": [],
+                "details": "Check functions:\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_without_type\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_with_type\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_with_both",
+            },
+        ],
+        key=lambda result: result["service_name"],
     )

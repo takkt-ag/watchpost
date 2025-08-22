@@ -29,20 +29,19 @@ class DummyDatasource(Datasource):
     scheduling_strategies = ()
 
 
-class MockBoto3Client(Datasource):
+class Boto3(Datasource, DatasourceFactory):
+    scheduling_strategies = ()
+
     def __init__(self, service_name: str, region_name: str):
         self.service_name = service_name
         self.region_name = region_name
 
     def __repr__(self) -> str:
-        return f"<MockBoto3Client service_name={self.service_name!r} region_name={self.region_name!r}>"
+        return f"<Boto3 service_name={self.service_name!r} region_name={self.region_name!r}>"
 
-
-class Boto3(DatasourceFactory):
-    scheduling_strategies = ()
-
-    def new(self, service: str) -> Datasource:
-        return MockBoto3Client(service, "eu-central-1")
+    @classmethod
+    def new(cls, service: str) -> Datasource:
+        return cls(service, "eu-central-1")
 
 
 @check(
@@ -53,7 +52,7 @@ class Boto3(DatasourceFactory):
 )
 def dummy_check_function(
     dummy: DummyDatasource,
-    annotated: Annotated[MockBoto3Client, FromFactory(Boto3, "ecs")],
+    annotated: Annotated[Boto3, FromFactory("ecs")],
 ) -> CheckResult:
     print("This is a running check.")
     print(f"Current app: {current_app}")
@@ -70,7 +69,7 @@ def dummy_check_function(
 )
 async def async_dummy_check_function(
     dummy: DummyDatasource,
-    annotated: Annotated[MockBoto3Client, FromFactory(Boto3, "ecs")],
+    annotated: Annotated[Boto3, FromFactory("ecs")],
 ) -> CheckResult:
     print("This is an async running check.")
     print(f"Current app: {current_app}")

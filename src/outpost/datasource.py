@@ -19,7 +19,7 @@ from __future__ import annotations
 from abc import ABC
 from collections.abc import Callable
 from types import EllipsisType
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol, overload
 
 from .scheduling_strategy import SchedulingStrategy
 
@@ -33,22 +33,48 @@ class Datasource(ABC):
 
 
 class DatasourceFactory(Protocol):
-    new: Callable[..., Datasource]
+    new: ClassVar[Callable[..., Datasource]]
     scheduling_strategies: tuple[SchedulingStrategy, ...] | EllipsisType | None = ...
 
 
 class FromFactory:
+    @overload
     def __init__(
         self,
         factory: type[DatasourceFactory],
         *args: Any,
         **kwargs: Any,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ): ...
+
+    def __init__(
+        self,
+        factory: type[DatasourceFactory] | Any = None,
+        *args: Any,
+        **kwargs: Any,
     ):
-        self.factory_type = factory
-        self.args = args
+        self.factory_type: type[DatasourceFactory] | None
+        if isinstance(factory, type):
+            self.factory_type = factory
+            self.args = args
+        else:
+            self.factory_type = None
+            self.args = (factory, *args)
+
         self.kwargs = kwargs
-        self.cache_key = (
-            self.factory_type,
+
+    def cache_key(
+        self,
+        type_key: type[DatasourceFactory] | None,
+    ) -> tuple[type[DatasourceFactory] | None, int, int]:
+        return (
+            self.factory_type or type_key,
             hash(frozenset(self.args)),
             hash(frozenset(self.kwargs.items())),
         )

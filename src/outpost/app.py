@@ -103,9 +103,10 @@ class Outpost:
         )
 
         self._datasource_definitions: dict[type[Datasource], dict[str, Any]] = {}
-        self._datasource_factories: dict[type, DatasourceFactory] = {}
+        self._datasource_factories: set[type] = set()
         self._instantiated_datasources: dict[
-            type[Datasource] | tuple[type[DatasourceFactory], int, int], Datasource
+            type[Datasource] | tuple[type[DatasourceFactory] | None, int, int],
+            Datasource,
         ] = {}
 
         self._resolved_datasources: dict[Check, dict[str, Datasource]] = {}
@@ -146,7 +147,7 @@ class Outpost:
         self._datasource_definitions[datasource_type] = kwargs
 
     def register_datasource_factory(self, factory_type: type[_DF]) -> None:
-        self._datasource_factories[factory_type] = factory_type()
+        self._datasource_factories.add(factory_type)
 
     def _generate_checkmk_agent_output(self) -> Generator[bytes]:
         yield b"<<<check_mk>>>\n"
@@ -191,38 +192,42 @@ class Outpost:
         self._instantiated_datasources[datasource_type] = datasource
         return datasource
 
-    def _resolve_datasource_from_factory(self, from_factory: FromFactory) -> Datasource:
+    def _resolve_datasource_from_factory(
+        self,
+        type_key: type[_DF],
+        from_factory: FromFactory,
+    ) -> Datasource:
+        factory_cache_key = from_factory.cache_key(type_key)
         if instantiated_datasource := self._instantiated_datasources.get(
-            from_factory.cache_key
+            factory_cache_key
         ):
             return instantiated_datasource
 
-        if datasource_factory := self._datasource_factories.get(
-            from_factory.factory_type
-        ):
-            datasource = datasource_factory.new(
+        factory_type = from_factory.factory_type or type_key
+        if factory_type in self._datasource_factories:
+            datasource = factory_type.new(
                 *from_factory.args,
                 **from_factory.kwargs,
             )
 
             if getattr(datasource, "scheduling_strategies", ...) is Ellipsis:
-                if from_factory.factory_type.scheduling_strategies:
+                if factory_type.scheduling_strategies:
                     datasource.scheduling_strategies = (
-                        from_factory.factory_type.scheduling_strategies
+                        factory_type.scheduling_strategies
                     )
-                elif from_factory.factory_type.scheduling_strategies is Ellipsis:
+                elif factory_type.scheduling_strategies is Ellipsis:
                     logger.warning(
                         "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
                         datasource,
-                        from_factory.factory_type,
+                        factory_type,
                     )
 
-            self._instantiated_datasources[from_factory.cache_key] = datasource
+            self._instantiated_datasources[factory_cache_key] = datasource
             return datasource
 
         raise ValueError(
-            f"No datasource factory for {from_factory.factory_type}. "
-            f"Make sure you have registered the factory using register_datasource_factory({from_factory.factory_type.__name__}) "
+            f"No datasource factory for {factory_type}. "
+            f"Make sure you have registered the factory using register_datasource_factory({factory_type.__name__}) "
             f"before running checks."
         )
 
@@ -238,7 +243,8 @@ class Outpost:
 
                 if isinstance(annotation_class, FromFactory):
                     datasources[name] = self._resolve_datasource_from_factory(
-                        annotation_class
+                        type_key,
+                        annotation_class,
                     )
                     continue
 
