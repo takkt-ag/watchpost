@@ -447,6 +447,10 @@ class Cache:
                 cache_key = key
                 if key_generator:
                     cache_key = key_generator(*args, **kwargs)
+                elif isinstance(cache_key, str) and "{" in cache_key:
+                    # The key provided seems to be formattable.
+                    bound_arguments = inspect.signature(func).bind(*args, **kwargs)
+                    cache_key = cache_key.format(**bound_arguments.arguments)
 
                 cache_entry: CacheEntry[R] | None = self.get(
                     key=cache_key,

@@ -227,6 +227,36 @@ class TestDiskStorage:
                 def memoized_function(a):
                     return a
 
+    def test_memoize_with_formattable_key(self):
+        """Test that memoize formats a key string using function arguments."""
+        with TemporaryDirectory() as tmpdir:
+            disk_storage = DiskStorage(tmpdir)
+            cache = Cache(disk_storage)
+
+            @cache.memoize(key="user-{a}-{b}")
+            def memoized_function(a, b):
+                _ = a
+                _ = b
+                return datetime.now(tz=UTC)
+
+            # First call should store using formatted key
+            call_1 = memoized_function(1, 2)
+            assert isinstance(call_1, datetime)
+            cache_key = CacheKey(key="user-1-2", package=cast(str, __package__))
+            cache_entry_path = disk_storage._get_file_path(cache_key)
+            assert cache_entry_path.exists()
+
+            # Repeated call with same args returns cached value
+            assert memoized_function(1, 2) == call_1
+
+            # Calling with kwargs in different order should resolve to same key/value
+            assert memoized_function(b=2, a=1) == call_1
+
+            # Different arguments produce a different cache entry and value
+            call_2 = memoized_function(2, 2)
+            assert isinstance(call_2, datetime)
+            assert call_2 > call_1
+
 
 class TestInMemoryStorage:
     def test_unknown_key(self):
@@ -398,6 +428,32 @@ class TestInMemoryStorage:
             @cache.memoize(key="something", key_generator=key_generator)
             def memoized_function(a):
                 return a
+
+    def test_memoize_with_formattable_key(self):
+        """Test that memoize formats a key string using function arguments (in-memory)."""
+        in_memory_storage = InMemoryStorage()
+        cache = Cache(in_memory_storage)
+
+        @cache.memoize(key="user-{a}-{b}")
+        def memoized_function(a, b):
+            _ = a
+            _ = b
+            return datetime.now(tz=UTC)
+
+        call_1 = memoized_function(1, 2)
+        assert isinstance(call_1, datetime)
+        cache_key = CacheKey(key="user-1-2", package=cast(str, __package__))
+        assert cache_key in in_memory_storage.cache
+
+        # Repeat with same args
+        assert memoized_function(1, 2) == call_1
+        # And with kwargs order swapped
+        assert memoized_function(b=2, a=1) == call_1
+
+        # Different args -> new cache entry/value
+        call_2 = memoized_function(2, 2)
+        assert isinstance(call_2, datetime)
+        assert call_2 > call_1
 
 
 class TestChainedStorage:
@@ -893,3 +949,30 @@ class TestRedisStorage:
             @cache.memoize(key="something", key_generator=key_generator)
             def memoized_function(a):
                 return a
+
+    def test_memoize_with_formattable_key(self, redis_client):
+        """Test that memoize formats a key string using function arguments (Redis)."""
+        redis_storage = RedisStorage(redis_client)
+        cache = Cache(redis_storage)
+
+        @cache.memoize(key="user-{a}-{b}")
+        def memoized_function(a, b):
+            _ = a
+            _ = b
+            return datetime.now(tz=UTC)
+
+        call_1 = memoized_function(1, 2)
+        assert isinstance(call_1, datetime)
+        cache_key = CacheKey(key="user-1-2", package=cast(str, __package__))
+        redis_key = redis_storage._get_redis_key(cache_key)
+        assert redis_client.exists(redis_key) == 1
+
+        # Repeat with same args
+        assert memoized_function(1, 2) == call_1
+        # And with kwargs order swapped
+        assert memoized_function(b=2, a=1) == call_1
+
+        # Different args -> new cache entry/value
+        call_2 = memoized_function(2, 2)
+        assert isinstance(call_2, datetime)
+        assert call_2 > call_1
