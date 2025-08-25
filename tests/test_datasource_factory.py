@@ -22,7 +22,7 @@ from typing import Annotated, cast
 import pytest
 
 from tests.utils import decode_checkmk_output
-from watchpost.app import Watchpost
+from watchpost.app import Watchpost, _InstantiableDatasource
 from watchpost.check import Check, check
 from watchpost.datasource import Datasource, DatasourceFactory, FromFactory
 from watchpost.environment import Environment
@@ -113,9 +113,12 @@ def test_resolve_datasource_from_factory() -> None:
     from_factory = FromFactory(TestFactory, "test-service")
 
     # Resolve the datasource
-    datasource = app._resolve_datasource_from_factory(
-        ConfigurableTestDatasource, from_factory
+    instantiable_datasource = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        from_factory,
     )
+    assert isinstance(instantiable_datasource, _InstantiableDatasource)
+    datasource = instantiable_datasource.instance()
 
     # Verify the datasource was resolved correctly
     assert isinstance(datasource, ConfigurableTestDatasource)
@@ -138,10 +141,10 @@ def test_resolve_datasource_from_factory_caching() -> None:
     from_factory = FromFactory(TestFactory, "test-service")
 
     # Resolve the datasource twice
-    datasource1 = app._resolve_datasource_from_factory(
+    datasource1 = app._resolve_instantiable_datasource_from_factory(
         ConfigurableTestDatasource, from_factory
     )
-    datasource2 = app._resolve_datasource_from_factory(
+    datasource2 = app._resolve_instantiable_datasource_from_factory(
         ConfigurableTestDatasource, from_factory
     )
 
@@ -166,13 +169,19 @@ def test_resolve_datasource_from_factory_with_different_args() -> None:
     from_factory2 = FromFactory(TestFactory, "service2")
 
     # Resolve the datasources
+    instantiable_datasource1 = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory1
+    )
     datasource1: ConfigurableTestDatasource = cast(
         ConfigurableTestDatasource,
-        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory1),
+        instantiable_datasource1.instance(),
+    )
+    instantiable_datasource2 = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource, from_factory2
     )
     datasource2: ConfigurableTestDatasource = cast(
         ConfigurableTestDatasource,
-        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory2),
+        instantiable_datasource2.instance(),
     )
 
     # Verify that different instances were returned
@@ -199,9 +208,12 @@ def test_resolve_datasource_from_factory_with_kwargs() -> None:
     )
 
     # Resolve the datasource
-    datasource = app._resolve_datasource_from_factory(
-        ConfigurableTestDatasource, from_factory
+    instantiable_datasource = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        from_factory,
     )
+    assert isinstance(instantiable_datasource, _InstantiableDatasource)
+    datasource = instantiable_datasource.instance()
 
     # Verify the datasource was resolved correctly
     assert isinstance(datasource, ConfigurableTestDatasource)
@@ -222,7 +234,9 @@ def test_factory_not_registered() -> None:
 
     # Attempt to resolve the datasource
     with pytest.raises(ValueError, match="No datasource factory for"):
-        app._resolve_datasource_from_factory(ConfigurableTestDatasource, from_factory)
+        app._resolve_instantiable_datasource_from_factory(
+            ConfigurableTestDatasource, from_factory
+        )
 
 
 def test_check_with_factory_datasource() -> None:
@@ -237,7 +251,8 @@ def test_check_with_factory_datasource() -> None:
     )
     def test_check(
         datasource: Annotated[
-            ConfigurableTestDatasource, FromFactory(TestFactory, "test-service")
+            ConfigurableTestDatasource,
+            FromFactory(TestFactory, "test-service"),
         ],
     ) -> CheckResult:
         return ok(f"Datasource config: {datasource.config_value}")
@@ -252,14 +267,19 @@ def test_check_with_factory_datasource() -> None:
     # Register the factory
     app.register_datasource_factory(TestFactory)
 
+    instantiable_datasource = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        FromFactory(TestFactory, "test-service"),
+    )
+    assert isinstance(instantiable_datasource, _InstantiableDatasource)
+    datasource = instantiable_datasource.instance()
+    assert isinstance(datasource, ConfigurableTestDatasource)
+
     # Run the check
     results = test_check.run_sync(
         watchpost=app,
         datasources={
-            "datasource": app._resolve_datasource_from_factory(
-                ConfigurableTestDatasource,
-                FromFactory(TestFactory, "test-service"),
-            ),
+            "datasource": datasource,
         },
         environment=TEST_ENVIRONMENT,
     )
@@ -302,17 +322,25 @@ def test_check_with_multiple_factory_datasources() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Run the check
+    instantiable_datasource1 = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        FromFactory(TestFactory, "service1"),
+    )
+    instantiable_datasource2 = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        FromFactory(TestFactory, "service2"),
+    )
+
+    datasource1 = instantiable_datasource1.instance()
+    assert isinstance(datasource1, ConfigurableTestDatasource)
+    datasource2 = instantiable_datasource2.instance()
+    assert isinstance(datasource2, ConfigurableTestDatasource)
+
     results = test_check.run_sync(
         watchpost=app,
         datasources={
-            "datasource1": app._resolve_datasource_from_factory(
-                ConfigurableTestDatasource,
-                FromFactory(TestFactory, "service1"),
-            ),
-            "datasource2": app._resolve_datasource_from_factory(
-                ConfigurableTestDatasource,
-                FromFactory(TestFactory, "service2"),
-            ),
+            "datasource1": datasource1,
+            "datasource2": datasource2,
         },
         environment=TEST_ENVIRONMENT,
     )
@@ -355,14 +383,19 @@ def test_check_with_mixed_datasources() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Run the check
+    instantiable_datasource = app._resolve_instantiable_datasource_from_factory(
+        ConfigurableTestDatasource,
+        FromFactory(TestFactory, "test-service"),
+    )
+
+    datasource = instantiable_datasource.instance()
+    assert isinstance(datasource, ConfigurableTestDatasource)
+
     results = test_check.run_sync(
         watchpost=app,
         datasources={
             "regular": TestDatasource(),
-            "factory": app._resolve_datasource_from_factory(
-                ConfigurableTestDatasource,
-                FromFactory(TestFactory, "test-service"),
-            ),
+            "factory": datasource,
         },
         environment=TEST_ENVIRONMENT,
     )
@@ -406,12 +439,14 @@ def test_watchpost_resolve_datasources_with_factory() -> None:
     app.register_datasource_factory(TestFactory)
 
     # Resolve the datasources
-    datasources = app._resolve_datasources(check_obj)
+    instantiable_datasources = app._resolve_datasources(check_obj)
 
     # Verify the datasources
-    assert "datasource" in datasources
-    assert isinstance(datasources["datasource"], ConfigurableTestDatasource)
-    assert datasources["datasource"].config_value == "factory-created-test-service"
+    assert "datasource" in instantiable_datasources
+    assert isinstance(instantiable_datasources["datasource"], _InstantiableDatasource)
+    datasource = instantiable_datasources["datasource"].instance()
+    assert isinstance(datasource, ConfigurableTestDatasource)
+    assert datasource.config_value == "factory-created-test-service"
 
 
 def test_watchpost_run_checks_with_factory() -> None:

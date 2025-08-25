@@ -85,7 +85,11 @@ def test_hostname_on_skip_without_prior_results_is_resolved():
     )
 
     with app.app_context():
-        results = app._run_check(check=my_check, environment=env, datasources={})  # type: ignore[arg-type]
+        results = app._run_check(
+            check=my_check,
+            environment=env,
+            instantiable_datasources={},
+        )  # type: ignore[arg-type]
     assert results is not None
     assert len(results) == 1
     assert results[0].piggyback_host == "check-host"
@@ -104,7 +108,11 @@ def test_hostname_on_datasource_unavailable_without_cache_is_resolved():
     )
 
     with app.app_context():
-        results = app._run_check(check=my_check, environment=env, datasources={})  # type: ignore[arg-type]
+        results = app._run_check(
+            check=my_check,
+            environment=env,
+            instantiable_datasources={},
+        )  # type: ignore[arg-type]
     assert results is not None
     assert len(results) == 1
     assert results[0].piggyback_host == "check-host"
@@ -123,7 +131,11 @@ def test_hostname_on_generic_exception_is_resolved():
     )
 
     with app.app_context():
-        results = app._run_check(check=my_check, environment=env, datasources={})  # type: ignore[arg-type]
+        results = app._run_check(
+            check=my_check,
+            environment=env,
+            instantiable_datasources={},
+        )  # type: ignore[arg-type]
     assert results is not None
     assert len(results) == 1
     assert results[0].piggyback_host == "check-host"
@@ -142,7 +154,11 @@ def test_hostname_on_async_first_run_is_resolved():
     )
 
     with app.app_context():
-        results = app._run_check(check=my_check, environment=env, datasources={})  # type: ignore[arg-type]
+        results = app._run_check(
+            check=my_check,
+            environment=env,
+            instantiable_datasources={},
+        )  # type: ignore[arg-type]
     assert results is not None
     assert len(results) == 1
     assert results[0].piggyback_host == "check-host"
