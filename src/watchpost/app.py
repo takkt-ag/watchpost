@@ -21,7 +21,7 @@ import sys
 import traceback
 from collections.abc import Generator
 from contextlib import contextmanager
-from types import ModuleType
+from types import EllipsisType, ModuleType
 from typing import Annotated, Any, TypeVar, assert_never, cast, get_args, get_origin
 
 from starlette.applications import Starlette
@@ -53,6 +53,96 @@ logger = logging.getLogger(f"{__package__}.{__name__}")
 
 _D = TypeVar("_D", bound=Datasource)
 _DF = TypeVar("_DF", bound=DatasourceFactory)
+
+
+class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
+    def __init__(
+        self,
+        *,
+        datasource_type: type[D] | None,
+        factory_type: type[DF] | None,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        self.datasource_type = datasource_type
+        self.factory_type = factory_type
+        self.args = args
+        self.kwargs = kwargs
+        self._instance: Datasource | None = None
+
+    @property
+    def scheduling_strategies(
+        self,
+    ) -> tuple[SchedulingStrategy, ...] | EllipsisType | None:
+        if self._instance is not None and (
+            scheduling_strategies := getattr(
+                self._instance,
+                "scheduling_strategies",
+                None,
+            )
+        ) not in (None, Ellipsis):
+            return scheduling_strategies
+
+        if self.factory_type:
+            # We try to instantiate the instance to see if it has any specific
+            # scheduling strategies. This is a step that can fail if the
+            # datasource is not meant to be instantiated in the current
+            # execution environment, but this might not be something we know at
+            # this point.
+            #
+            # This can be considered a best-effort attempt to honor a
+            # factory-created datasource's scheduling strategies.
+            try:
+                if (
+                    scheduling_strategies := self.instance().scheduling_strategies
+                ) not in (None, Ellipsis):
+                    return scheduling_strategies
+            except Exception:
+                pass
+            return self.factory_type.scheduling_strategies
+
+        assert self.datasource_type is not None
+        return self.datasource_type.scheduling_strategies
+
+    @classmethod
+    def from_datasource(
+        cls,
+        datasource_type: type[D],
+        **kwargs: dict[str, Any],
+    ) -> _InstantiableDatasource:
+        return cls(
+            datasource_type=datasource_type,
+            factory_type=None,
+            args=(),
+            kwargs=kwargs,
+        )
+
+    @classmethod
+    def from_factory(
+        cls,
+        factory_type: type[DF],
+        *args: Any,
+        **kwargs: Any,
+    ) -> _InstantiableDatasource:
+        return cls(
+            datasource_type=None,
+            factory_type=factory_type,
+            args=args,
+            kwargs=kwargs,
+        )
+
+    def instance(self) -> Datasource:
+        if not self._instance:
+            if self.factory_type:
+                self._instance = self.factory_type.new(
+                    *self.args,
+                    **self.kwargs,
+                )
+            else:
+                assert self.datasource_type is not None
+                self._instance = self.datasource_type(**self.kwargs)
+
+        return self._instance
 
 
 class Watchpost:
@@ -112,14 +202,18 @@ class Watchpost:
             type[Datasource] | type[DatasourceFactory], dict[str, Any]
         ] = {}
         self._datasource_factories: set[type] = set()
-        self._instantiated_datasources: dict[
+
+        self._instantiable_datasources: dict[
             type[Datasource]
             | type[DatasourceFactory]
             | tuple[type[DatasourceFactory] | None, int, int],
-            Datasource,
+            _InstantiableDatasource,
         ] = {}
 
-        self._resolved_datasources: dict[Check, dict[str, Datasource]] = {}
+        self._resolved_instantiable_datasources: dict[
+            Check,
+            dict[str, _InstantiableDatasource],
+        ] = {}
         self._resolved_strategies: dict[Check, list[SchedulingStrategy]] = {}
 
         self._starlette = Starlette(
@@ -188,61 +282,64 @@ class Watchpost:
         for execution_result in execution_results:
             yield from execution_result.generate_checkmk_output()
 
-    def _resolve_datasource(self, datasource_type: type[_D] | type[_DF]) -> Datasource:
-        if instantiated_datasource := self._instantiated_datasources.get(
+    def _resolve_instantiable_datasource(
+        self,
+        datasource_type: type[_D] | type[_DF],
+    ) -> _InstantiableDatasource:
+        if instantiable_datasource := self._instantiable_datasources.get(
             datasource_type
         ):
-            return instantiated_datasource
+            return instantiable_datasource
 
         datasource_kwargs = self._datasource_definitions.get(datasource_type)
         if datasource_kwargs is None:
             try:
-                datasource = self._resolve_datasource_from_factory(
-                    cast(type[_DF], datasource_type),
-                    FromFactory(),
+                instantiable_datasource = (
+                    self._resolve_instantiable_datasource_from_factory(
+                        cast(type[_DF], datasource_type),
+                        FromFactory(),
+                    )
                 )
             except ValueError as e:
                 raise ValueError(
                     f"No datasource definition for {datasource_type}"
                 ) from e
         else:
-            datasource = cast(type[_D], datasource_type)(**datasource_kwargs)
+            instantiable_datasource = _InstantiableDatasource.from_datasource(
+                cast(type[_D], datasource_type),
+                **datasource_kwargs,
+            )
 
-        self._instantiated_datasources[datasource_type] = datasource
-        return datasource
+        self._instantiable_datasources[datasource_type] = instantiable_datasource
+        return instantiable_datasource
 
-    def _resolve_datasource_from_factory(
+    def _resolve_instantiable_datasource_from_factory(
         self,
         type_key: type[_DF],
         from_factory: FromFactory,
-    ) -> Datasource:
+    ) -> _InstantiableDatasource:
         factory_cache_key = from_factory.cache_key(type_key)
-        if instantiated_datasource := self._instantiated_datasources.get(
+        if instantiable_datasource := self._instantiable_datasources.get(
             factory_cache_key
         ):
-            return instantiated_datasource
+            return instantiable_datasource
 
         factory_type = from_factory.factory_type or type_key
         if factory_type in self._datasource_factories:
-            datasource = factory_type.new(
+            instantiable_datasource = _InstantiableDatasource.from_factory(
+                factory_type,
                 *from_factory.args,
                 **from_factory.kwargs,
             )
 
-            if getattr(datasource, "scheduling_strategies", ...) is Ellipsis:
-                if factory_type.scheduling_strategies:
-                    datasource.scheduling_strategies = (
-                        factory_type.scheduling_strategies
-                    )
-                elif factory_type.scheduling_strategies is Ellipsis:
-                    logger.warning(
-                        "The factory-created datasource has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=(). Datasource=%s, Factory=%s",
-                        datasource,
-                        factory_type,
-                    )
+            if factory_type.scheduling_strategies is Ellipsis:
+                logger.warning(
+                    "The datasource-factory '%s' has no scheduling strategies defined. Please make sure that either your factory or the datasource created by your factory has them defined or explicitly set to scheduling_strategies=().",
+                    factory_type,
+                )
 
-            self._instantiated_datasources[factory_cache_key] = datasource
-            return datasource
+            self._instantiable_datasources[factory_cache_key] = instantiable_datasource
+            return instantiable_datasource
 
         raise ValueError(
             f"No datasource factory for {factory_type}. "
@@ -250,20 +347,25 @@ class Watchpost:
             f"before running checks."
         )
 
-    def _resolve_datasources(self, check: Check) -> dict[str, Datasource]:
-        if resolved_datasources := self._resolved_datasources.get(check):
-            return resolved_datasources
+    def _resolve_datasources(self, check: Check) -> dict[str, _InstantiableDatasource]:
+        if (
+            resolved_instantiable_datasources
+            := self._resolved_instantiable_datasources.get(check)
+        ):
+            return resolved_instantiable_datasources
 
-        datasources = {}
+        instantiable_datasources = {}
         for name, parameter in check.type_hints.items():
             if get_origin(parameter) is Annotated:
                 type_key, *args = get_args(parameter)
                 annotation_class = args[0]
 
                 if isinstance(annotation_class, FromFactory):
-                    datasources[name] = self._resolve_datasource_from_factory(
-                        type_key,
-                        annotation_class,
+                    instantiable_datasources[name] = (
+                        self._resolve_instantiable_datasource_from_factory(
+                            type_key,
+                            annotation_class,
+                        )
                     )
                     continue
 
@@ -274,7 +376,9 @@ class Watchpost:
                 )
 
             if isinstance(parameter, type) and issubclass(parameter, Datasource):
-                datasources[name] = self._resolve_datasource(parameter)
+                instantiable_datasources[name] = self._resolve_instantiable_datasource(
+                    parameter
+                )
                 continue
 
             if isinstance(parameter, type) and issubclass(parameter, Environment):
@@ -287,8 +391,8 @@ class Watchpost:
                 "it is a regular class defined outside of a function.)"
             )
 
-        self._resolved_datasources[check] = datasources
-        return datasources
+        self._resolved_instantiable_datasources[check] = instantiable_datasources
+        return instantiable_datasources
 
     def _resolve_scheduling_strategies(self, check: Check) -> list[SchedulingStrategy]:
         if resolved_strategies := self._resolved_strategies.get(check):
@@ -299,12 +403,12 @@ class Watchpost:
         if check.scheduling_strategies:
             strategies.extend(check.scheduling_strategies)
 
-        for datasource in self._resolve_datasources(check).values():
+        for instantiable_datasource in self._resolve_datasources(check).values():
             if (
-                datasource.scheduling_strategies
-                and datasource.scheduling_strategies is not Ellipsis
+                instantiable_datasource.scheduling_strategies
+                and instantiable_datasource.scheduling_strategies is not Ellipsis
             ):
-                strategies.extend(datasource.scheduling_strategies)
+                strategies.extend(instantiable_datasource.scheduling_strategies)
 
         strategies.extend(self.default_scheduling_strategies)
 
@@ -343,14 +447,12 @@ class Watchpost:
                 try:
                     datasources = self._resolve_datasources(check)
                     for target_environment in check.environments:
-                        available_kwarg_keys = set(
-                            check.get_function_kwargs(
-                                environment=target_environment,
-                                datasources=datasources,
-                            ).keys()
-                        )
+                        available_kwarg_keys = {
+                            "environment",
+                            *datasources.keys(),
+                        }
                         expected_kwarg_keys = set(check.signature.parameters.keys())
-                        if available_kwarg_keys != expected_kwarg_keys:
+                        if not available_kwarg_keys.issuperset(expected_kwarg_keys):
                             exceptions.append(
                                 InvalidCheckConfiguration(
                                     check,
@@ -365,7 +467,8 @@ class Watchpost:
                         # throws an InvalidCheckConfiguration exception.
                         try:
                             self._resolve_check_scheduling_decision(
-                                check, target_environment
+                                check,
+                                target_environment,
                             )
                         except InvalidCheckConfiguration as e:
                             exceptions.append(e)
@@ -388,7 +491,7 @@ class Watchpost:
         self,
         check: Check,
         environment: Environment,
-        datasources: dict[str, Datasource],
+        instantiable_datasources: dict[str, _InstantiableDatasource],
         *,
         custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
         use_cache: bool = True,
@@ -453,6 +556,10 @@ class Watchpost:
         )
 
         if should_update_cache or not can_reuse_results:
+            datasources = {
+                name: datasource.instance()
+                for name, datasource in instantiable_datasources.items()
+            }
             executor.submit(
                 key=executor_key,
                 func=check.run_async if check.is_async else check.run_sync,
@@ -544,12 +651,12 @@ class Watchpost:
         use_cache: bool = True,
     ) -> Generator[ExecutionResult]:
         with self.app_context():
-            datasources = self._resolve_datasources(check)
+            instantiable_datasources = self._resolve_datasources(check)
             for environment in check.environments:
                 execution_results = self._run_check(
                     check=check,
                     environment=environment,
-                    datasources=datasources,
+                    instantiable_datasources=instantiable_datasources,
                     custom_executor=custom_executor,
                     use_cache=use_cache,
                 )
