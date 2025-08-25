@@ -72,6 +72,15 @@ class DatasourceWithFactory(Datasource, DatasourceFactory):
         return cls(value)
 
 
+class DatasourceWithFactoryNoArgs(Datasource, DatasourceFactory):
+    def __init__(self):
+        self.value = "static"
+
+    @classmethod
+    def new(cls) -> DatasourceWithFactoryNoArgs:
+        return cls()
+
+
 def test_register_datasource_factory() -> None:
     """Test that a datasource factory can be registered with an Watchpost instance."""
     # Create an Watchpost instance
@@ -782,6 +791,104 @@ def test_datasource_with_factory():
                 "summary": "Ran 3 checks",
                 "metrics": [],
                 "details": "Check functions:\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_without_type\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_with_type\n- tests.test_datasource_factory.test_datasource_with_factory.<locals>.datasource_with_factory_with_both",
+            },
+        ],
+        key=lambda result: result["service_name"],
+    )
+
+
+def test_datasource_with_factory_no_args():
+    @check(
+        name="datasource-by-factory",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_by_factory(ds: DatasourceWithFactoryNoArgs):
+        return ok(str(id(ds)))
+
+    @check(
+        name="datasource-annotated-no-args",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_annotated_no_args(
+        ds: Annotated[DatasourceWithFactoryNoArgs, FromFactory()],
+    ):
+        return ok(str(id(ds)))
+
+    @check(
+        name="datasource-annotated-type-arg",
+        service_labels={"test": "true"},
+        environments=[TEST_ENVIRONMENT],
+        cache_for=None,
+    )
+    def datasource_annotated_type_arg(
+        ds: Annotated[
+            DatasourceWithFactoryNoArgs, FromFactory(DatasourceWithFactoryNoArgs)
+        ],
+    ):
+        return ok(str(id(ds)))
+
+    app = Watchpost(
+        checks=[
+            datasource_by_factory,
+            datasource_annotated_no_args,
+            datasource_annotated_type_arg,
+        ],
+        execution_environment=TEST_ENVIRONMENT,
+        executor=BlockingCheckExecutor(),
+    )
+    app.register_datasource_factory(DatasourceWithFactoryNoArgs)
+
+    checkmk_output = decode_checkmk_output(b"".join(app.run_checks()))
+    for item in checkmk_output:
+        item.pop("check_definition", None)
+
+    assert len(checkmk_output) == 4
+
+    # We want to verify that the datasource injected into each check is the
+    # exact same object, since the invocations above are, in the end, equivalent.
+    datasource_id = checkmk_output[0]["summary"]
+
+    assert sorted(checkmk_output, key=lambda result: result["service_name"]) == sorted(
+        [
+            {
+                "service_name": "Run checks",
+                "service_labels": {},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": "Ran 3 checks",
+                "metrics": [],
+                "details": "Check functions:\n- tests.test_datasource_factory.test_datasource_with_factory_no_args.<locals>.datasource_by_factory\n- tests.test_datasource_factory.test_datasource_with_factory_no_args.<locals>.datasource_annotated_no_args\n- tests.test_datasource_factory.test_datasource_with_factory_no_args.<locals>.datasource_annotated_type_arg",
+            },
+            {
+                "service_name": "datasource-annotated-no-args",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": datasource_id,
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "datasource-annotated-type-arg",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": datasource_id,
+                "metrics": [],
+                "details": None,
+            },
+            {
+                "service_name": "datasource-by-factory",
+                "service_labels": {"test": "true"},
+                "environment": "test-env",
+                "check_state": "OK",
+                "summary": datasource_id,
+                "metrics": [],
+                "details": None,
             },
         ],
         key=lambda result: result["service_name"],

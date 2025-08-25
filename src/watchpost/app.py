@@ -22,7 +22,7 @@ import traceback
 from collections.abc import Generator
 from contextlib import contextmanager
 from types import ModuleType
-from typing import Annotated, Any, TypeVar, assert_never, get_args, get_origin
+from typing import Annotated, Any, TypeVar, assert_never, cast, get_args, get_origin
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
@@ -108,10 +108,14 @@ class Watchpost:
             storage=check_cache_storage or InMemoryStorage(),
         )
 
-        self._datasource_definitions: dict[type[Datasource], dict[str, Any]] = {}
+        self._datasource_definitions: dict[
+            type[Datasource] | type[DatasourceFactory], dict[str, Any]
+        ] = {}
         self._datasource_factories: set[type] = set()
         self._instantiated_datasources: dict[
-            type[Datasource] | tuple[type[DatasourceFactory] | None, int, int],
+            type[Datasource]
+            | type[DatasourceFactory]
+            | tuple[type[DatasourceFactory] | None, int, int],
             Datasource,
         ] = {}
 
@@ -184,7 +188,7 @@ class Watchpost:
         for execution_result in execution_results:
             yield from execution_result.generate_checkmk_output()
 
-    def _resolve_datasource(self, datasource_type: type[_D]) -> Datasource:
+    def _resolve_datasource(self, datasource_type: type[_D] | type[_DF]) -> Datasource:
         if instantiated_datasource := self._instantiated_datasources.get(
             datasource_type
         ):
@@ -192,9 +196,18 @@ class Watchpost:
 
         datasource_kwargs = self._datasource_definitions.get(datasource_type)
         if datasource_kwargs is None:
-            raise ValueError(f"No datasource definition for {datasource_type}")
+            try:
+                datasource = self._resolve_datasource_from_factory(
+                    cast(type[_DF], datasource_type),
+                    FromFactory(),
+                )
+            except ValueError as e:
+                raise ValueError(
+                    f"No datasource definition for {datasource_type}"
+                ) from e
+        else:
+            datasource = cast(type[_D], datasource_type)(**datasource_kwargs)
 
-        datasource = datasource_type(**datasource_kwargs)
         self._instantiated_datasources[datasource_type] = datasource
         return datasource
 

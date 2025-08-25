@@ -60,7 +60,7 @@ class FromFactory:
         **kwargs: Any,
     ):
         self.factory_type: type[DatasourceFactory] | None
-        if isinstance(factory, type):
+        if factory is None or isinstance(factory, type):
             self.factory_type = factory
             self.args = args
         else:
