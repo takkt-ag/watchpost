@@ -391,6 +391,7 @@ class Watchpost:
         datasources: dict[str, Datasource],
         *,
         custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
+        use_cache: bool = True,
     ) -> list[ExecutionResult] | None:
         executor = custom_executor or self.executor
 
@@ -407,11 +408,15 @@ class Watchpost:
             check,
             environment,
         )
-        check_results_cache_entry = self._check_cache.get_check_results_cache_entry(
-            check=check,
-            environment=environment,
-            return_expired=True,
-        )
+
+        if use_cache:
+            check_results_cache_entry = self._check_cache.get_check_results_cache_entry(
+                check=check,
+                environment=environment,
+                return_expired=True,
+            )
+        else:
+            check_results_cache_entry = None
 
         match scheduling_decision:
             case SchedulingDecision.SCHEDULE:
@@ -522,11 +527,13 @@ class Watchpost:
                 )
             ]
 
-        self._check_cache.store_check_results(
-            check=check,
-            environment=environment,
-            results=maybe_execution_results,
-        )
+        if use_cache:
+            self._check_cache.store_check_results(
+                check=check,
+                environment=environment,
+                results=maybe_execution_results,
+            )
+
         return maybe_execution_results
 
     def run_check(
@@ -534,6 +541,7 @@ class Watchpost:
         check: Check,
         *,
         custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
+        use_cache: bool = True,
     ) -> Generator[ExecutionResult]:
         with self.app_context():
             datasources = self._resolve_datasources(check)
@@ -543,6 +551,7 @@ class Watchpost:
                     environment=environment,
                     datasources=datasources,
                     custom_executor=custom_executor,
+                    use_cache=use_cache,
                 )
 
                 if not execution_results:
