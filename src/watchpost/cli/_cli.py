@@ -177,6 +177,17 @@ def verify_check_configuration(app: Watchpost) -> None:
     ),
 )  # type: ignore[misc]
 @click.option(
+    "--cache/--no-cache",
+    is_flag=True,
+    default=False,
+    help=(
+        "Whether to make use of check-caching at all, both for storing and for "
+        "retrieving. Usually when you run on the CLI you don't want any caches "
+        "to be active, which is the default. If you specifically want to test "
+        "and see cached results, provide `--cache`."
+    ),
+)  # type: ignore[misc]
+@click.option(
     "--filter-prefix",
     default=None,
     help="Filter which checks to run by prefix against their name (as shown by list-checks)",
@@ -190,6 +201,7 @@ def verify_check_configuration(app: Watchpost) -> None:
 def run_checks(
     app: Watchpost,
     asynchronous_check_execution: bool = False,
+    cache: bool = False,
     filter_prefix: str | None = None,
     filter_contains: str | None = None,
 ) -> None:
@@ -207,6 +219,7 @@ def run_checks(
             yield from app.run_check(
                 check,
                 custom_executor=custom_executor,
+                use_cache=cache,
             )
 
     display_results_table(_run())
