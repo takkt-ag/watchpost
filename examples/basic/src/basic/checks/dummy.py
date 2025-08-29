@@ -22,11 +22,13 @@ from watchpost import (
     ok,
 )
 
+from .. import ENVIRONMENT_TEST
+
 
 @check(
     name="dummy",
     service_labels={"foo": "bar"},
-    environments=[Environment("test")],
+    environments=[ENVIRONMENT_TEST],
     cache_for=None,
 )
 def dummy_check_function(environment: Environment) -> CheckResult:

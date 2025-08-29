@@ -23,7 +23,7 @@ from .datasource import (
     DatasourceUnavailable,
     FromFactory,
 )
-from .environment import Environment
+from .environment import Environment, EnvironmentRegistry
 from .globals import current_app
 from .result import (
     CheckResult,
@@ -51,6 +51,7 @@ __all__ = [
     "DatasourceUnavailable",
     "DiskStorage",
     "Environment",
+    "EnvironmentRegistry",
     "FromFactory",
     "InMemoryStorage",
     "Metric",

@@ -20,7 +20,7 @@ from watchpost import (
     CheckResult,
     Datasource,
     DatasourceFactory,
-    Environment,
+    EnvironmentRegistry,
     FromFactory,
     Watchpost,
     check,
@@ -50,10 +50,14 @@ class Boto3(Datasource, DatasourceFactory):
         return cls(service, "eu-central-1")
 
 
+environment_registry = EnvironmentRegistry()
+ENVIRONMENT_TEST = environment_registry.new("test")
+
+
 @check(
     name="dummy",
     service_labels={"foo": "bar"},
-    environments=[Environment("test")],
+    environments=[ENVIRONMENT_TEST],
     cache_for=None,
 )
 def dummy_check_function(
@@ -70,7 +74,7 @@ def dummy_check_function(
 @check(
     name="async dummy",
     service_labels={"foo": "bar"},
-    environments=[Environment("test")],
+    environments=[ENVIRONMENT_TEST],
     cache_for=None,
 )
 async def async_dummy_check_function(
@@ -93,7 +97,7 @@ app = Watchpost(
         # Automatically recursively discover checks (sync and async) in a module
         checks,
     ],
-    execution_environment=Environment("test"),
+    execution_environment=ENVIRONMENT_TEST,
 )
 
 app.register_datasource(DummyDatasource)

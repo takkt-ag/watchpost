@@ -26,7 +26,7 @@ class Environment:
         name: str,
         *,
         hostname: HostnameInput | None = None,
-        **metadata: dict[str, Hashable],
+        **metadata: Hashable,
     ):
         self.name = name
         self.hostname_strategy = to_strategy(hostname)
@@ -49,3 +49,41 @@ class Environment:
                 frozenset(self.metadata.items()),
             )
         )
+
+
+class EnvironmentRegistry:
+    def __init__(self) -> None:
+        self._environments: dict[str, Environment] = {}
+
+    def __getitem__(self, name: str) -> Environment:
+        return self._environments[name]
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._environments
+
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        return iter(self._environments.values())
+
+    def __len__(self) -> int:
+        return len(self._environments)
+
+    def get(self, name: str, default: Environment | None = None) -> Environment | None:
+        return self._environments.get(name, default)
+
+    def new(
+        self,
+        name: str,
+        *,
+        hostname: HostnameInput | None = None,
+        **metadata: Hashable,
+    ) -> Environment:
+        environment = Environment(
+            name,
+            hostname=hostname,
+            **metadata,
+        )
+        self.add(environment)
+        return environment
+
+    def add(self, environment: Environment) -> None:
+        self._environments[environment.name] = environment
