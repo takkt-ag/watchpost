@@ -19,10 +19,18 @@ from __future__ import annotations
 import logging
 import sys
 import traceback
-from collections.abc import Generator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager, contextmanager
 from types import EllipsisType, ModuleType
-from typing import Annotated, Any, TypeVar, assert_never, cast, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    TypeVar,
+    assert_never,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from starlette.applications import Starlette
 from starlette.types import Receive, Scope, Send
@@ -218,13 +226,21 @@ class Watchpost:
 
         self._starlette = Starlette(
             routes=http.routes,
+            lifespan=self._lifespan,
         )
 
         self._check_scheduling_verified = False
+        self._check_hostname_generation_verified = False
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         with self.app_context():
             return await self._starlette(scope, receive, send)
+
+    @asynccontextmanager
+    async def _lifespan(self, _app: Starlette) -> AsyncGenerator[None]:
+        self.verify_check_scheduling()
+        self.verify_hostname_generation()
+        yield
 
     @contextmanager
     def app_context(self) -> Generator[Watchpost]:
@@ -486,6 +502,39 @@ class Watchpost:
                 "One or more checks are not well-configured", exceptions
             )
         self._check_scheduling_verified = True
+
+    def verify_hostname_generation(
+        self,
+        force: bool = False,
+    ) -> None:
+        if self._check_hostname_generation_verified and not force:
+            return
+
+        errors: list[InvalidCheckConfiguration] = []
+        for check in self.checks:
+            for environment in check.environments:
+                try:
+                    resolve_hostname(
+                        watchpost=self,
+                        check=check,
+                        environment=environment,
+                        result=None,
+                        fallback_to_default_hostname_generation=self.hostname_fallback_to_default_hostname_generation,
+                        coerce_into_valid_hostname=self.hostname_coerce_into_valid_hostname,
+                    )
+                except Exception as e:
+                    errors.append(
+                        InvalidCheckConfiguration(
+                            check,
+                            "Hostname resolution failed",
+                            e,
+                        )
+                    )
+
+        if errors:
+            raise ExceptionGroup("Failed to resolve hostnames", errors)
+
+        self._check_hostname_generation_verified = True
 
     def _run_check(
         self,
