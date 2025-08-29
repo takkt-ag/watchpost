@@ -16,11 +16,17 @@
 
 from typing import Annotated
 
-from watchpost import Watchpost, current_app
-from watchpost.check import check
-from watchpost.datasource import Datasource, DatasourceFactory, FromFactory
-from watchpost.environment import Environment
-from watchpost.result import CheckResult, ok
+from watchpost import (
+    CheckResult,
+    Datasource,
+    DatasourceFactory,
+    EnvironmentRegistry,
+    FromFactory,
+    Watchpost,
+    check,
+    current_app,
+    ok,
+)
 
 from . import checks
 
@@ -44,10 +50,14 @@ class Boto3(Datasource, DatasourceFactory):
         return cls(service, "eu-central-1")
 
 
+environment_registry = EnvironmentRegistry()
+ENVIRONMENT_TEST = environment_registry.new("test")
+
+
 @check(
     name="dummy",
     service_labels={"foo": "bar"},
-    environments=[Environment("test")],
+    environments=[ENVIRONMENT_TEST],
     cache_for=None,
 )
 def dummy_check_function(
@@ -64,7 +74,7 @@ def dummy_check_function(
 @check(
     name="async dummy",
     service_labels={"foo": "bar"},
-    environments=[Environment("test")],
+    environments=[ENVIRONMENT_TEST],
     cache_for=None,
 )
 async def async_dummy_check_function(
@@ -87,7 +97,7 @@ app = Watchpost(
         # Automatically recursively discover checks (sync and async) in a module
         checks,
     ],
-    execution_environment=Environment("test"),
+    execution_environment=ENVIRONMENT_TEST,
 )
 
 app.register_datasource(DummyDatasource)
