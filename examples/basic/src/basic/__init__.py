@@ -16,11 +16,17 @@
 
 from typing import Annotated
 
-from watchpost import Watchpost, current_app
-from watchpost.check import check
-from watchpost.datasource import Datasource, DatasourceFactory, FromFactory
-from watchpost.environment import Environment
-from watchpost.result import CheckResult, ok
+from watchpost import (
+    CheckResult,
+    Datasource,
+    DatasourceFactory,
+    Environment,
+    FromFactory,
+    Watchpost,
+    check,
+    current_app,
+    ok,
+)
 
 from . import checks
 

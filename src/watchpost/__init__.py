@@ -15,15 +15,50 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .app import Watchpost
-from .check import check
-from .datasource import Datasource
+from .cache import Cache, ChainedStorage, DiskStorage, InMemoryStorage, RedisStorage
+from .check import CheckFunctionResult, check
+from .datasource import (
+    Datasource,
+    DatasourceFactory,
+    DatasourceUnavailable,
+    FromFactory,
+)
 from .environment import Environment
 from .globals import current_app
-from .result import build_result, crit, ok, unknown, warn
+from .result import (
+    CheckResult,
+    Metric,
+    Thresholds,
+    build_result,
+    crit,
+    ok,
+    unknown,
+    warn,
+)
+from .scheduling_strategy import (
+    MustRunAgainstGivenTargetEnvironmentStrategy,
+    MustRunInGivenExecutionEnvironmentStrategy,
+    MustRunInTargetEnvironmentStrategy,
+)
 
 __all__ = [
+    "Cache",
+    "ChainedStorage",
+    "CheckFunctionResult",
+    "CheckResult",
     "Datasource",
+    "DatasourceFactory",
+    "DatasourceUnavailable",
+    "DiskStorage",
     "Environment",
+    "FromFactory",
+    "InMemoryStorage",
+    "Metric",
+    "MustRunAgainstGivenTargetEnvironmentStrategy",
+    "MustRunInGivenExecutionEnvironmentStrategy",
+    "MustRunInTargetEnvironmentStrategy",
+    "RedisStorage",
+    "Thresholds",
     "Watchpost",
     "build_result",
     "check",

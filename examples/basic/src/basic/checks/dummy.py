@@ -14,10 +14,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from watchpost.check import check
-from watchpost.environment import Environment
-from watchpost.globals import current_app
-from watchpost.result import CheckResult, ok
+from watchpost import (
+    CheckResult,
+    Environment,
+    check,
+    current_app,
+    ok,
+)
 
 
 @check(
