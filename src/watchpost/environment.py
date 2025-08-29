@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Hashable
 from typing import Any
 
 from .hostname import HostnameInput, to_strategy
@@ -25,15 +26,18 @@ class Environment:
         name: str,
         *,
         hostname: HostnameInput | None = None,
+        **metadata: dict[str, Hashable],
     ):
         self.name = name
         self.hostname_strategy = to_strategy(hostname)
+        self.metadata = metadata
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Environment):
             return (
                 self.name == other.name
                 and self.hostname_strategy == other.hostname_strategy
+                and self.metadata == other.metadata
             )
         return False
 
@@ -42,5 +46,6 @@ class Environment:
             (
                 self.name,
                 self.hostname_strategy,
+                frozenset(self.metadata.items()),
             )
         )
