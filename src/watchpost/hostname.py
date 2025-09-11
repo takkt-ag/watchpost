@@ -14,6 +14,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Hostname resolution utilities and strategies.
+
+Provides a small strategy protocol to compute the target hostname for a check
+result, helpers to validate or coerce hostnames to RFC1123, and the
+orchestration function `resolve_hostname` that applies precedence across result,
+check, environment, and the Watchpost application.
+
+Notes:
+    Hostnames must follow RFC1123: ASCII letters, digits, and hyphens in
+    dot-separated labels, each label 1-63 characters, total length up to 253
+    characters. Labels must start and end with an alphanumeric character.
+"""
+
 from __future__ import annotations
 
 import re
@@ -31,11 +45,40 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class HostnameContext:
+    """
+    Carries context available when resolving a hostname for a check execution.
+
+    This object is passed to hostname strategies so they can decide on a
+    hostname based on the check, environment, service information, and an
+    optional result.
+    """
+
     check: Check
+    """
+    The current check being executed.
+    """
+
     environment: Environment
+    """
+    The current environment of the execution.
+    """
+
     service_name: str
+    """
+    The service name as defined by the check (`@check`). Checkmk will use this
+    name to identify the service.
+    """
+
     service_labels: dict[str, Any]
+    """
+    Labels attached to the service. Useful for templating or custom strategies.
+    """
+
     result: CheckResult | None = None
+    """
+    The optional result that the check returned. If present, it may include a
+    hostname override on the result which takes precedence during resolution.
+    """
 
     @classmethod
     def new(
@@ -47,6 +90,26 @@ class HostnameContext:
         service_name: str | None = None,
         service_labels: dict[str, Any] | None = None,
     ) -> HostnameContext:
+        """
+        Create a HostnameContext with sensible defaults from the given inputs.
+
+        Parameters:
+            check:
+                The check for which a hostname is being resolved.
+            environment:
+                The environment in which the check runs.
+            result:
+                Optional result produced by the check. When given, used to
+                support per-result hostname overrides.
+            service_name:
+                Optional service name. Defaults to the check's service name.
+            service_labels:
+                Optional service labels. Defaults to the check's service labels.
+
+        Returns:
+            A new HostnameContext initialized with the provided values and
+            defaults.
+        """
         return cls(
             check=check,
             environment=environment,
@@ -57,10 +120,26 @@ class HostnameContext:
 
 
 class HostnameStrategy(Protocol):
+    """
+    Strategy protocol for resolving a hostname from a `HostnameContext`.
+
+    Implementations return a hostname string or `None` if they cannot decide.
+    Returning `None` allows composition where later strategies may provide a
+    hostname.
+    """
+
     def resolve(self, ctx: HostnameContext) -> str | None: ...
 
 
 class StaticHostnameStrategy(HostnameStrategy):
+    """
+    Always returns the given hostname literal.
+
+    Parameters:
+        hostname:
+            The hostname to return for any context.
+    """
+
     def __init__(self, hostname: str):
         self.hostname = hostname
 
@@ -70,6 +149,18 @@ class StaticHostnameStrategy(HostnameStrategy):
 
 
 class FunctionStrategy(HostnameStrategy):
+    """
+    Calls a function with the `HostnameContext` to compute a hostname.
+
+    Returning `None` indicates no decision and allows fallthrough to later
+    strategies.
+
+    Parameters:
+        fn:
+            A callable that receives a `HostnameContext` and returns a hostname
+            or `None`.
+    """
+
     def __init__(self, fn: Callable[[HostnameContext], str | None]):
         self.fn = fn
 
@@ -79,6 +170,18 @@ class FunctionStrategy(HostnameStrategy):
 
 
 class TemplateStrategy(HostnameStrategy):
+    """
+    Formats a string template using fields from the `HostnameContext`.
+
+    The template is processed with `str.format(**asdict(ctx))`. You can access
+    context fields, including nested attributes on objects such as
+    `{environment.name}` or `{check.service_name}`.
+
+    Parameters:
+        template:
+            A format string for `str.format` using keys from the context.
+    """
+
     def __init__(self, template: str):
         self.template = template
 
@@ -88,6 +191,14 @@ class TemplateStrategy(HostnameStrategy):
 
 
 class CompositeStrategy(HostnameStrategy):
+    """
+    Tries multiple strategies in order and returns the first non-empty result.
+
+    Parameters:
+        strategies:
+            One or more strategies to evaluate in order.
+    """
+
     def __init__(self, *strategies: HostnameStrategy):
         self.strategies = strategies
 
@@ -105,6 +216,22 @@ HOSTNAME_MAX = 253
 
 
 def is_rfc1123_hostname(value: str) -> bool:
+    """
+    Determine whether the given value is a valid RFC1123 hostname.
+
+    Parameters:
+        value:
+            The hostname candidate to validate.
+
+    Returns:
+        True if the value conforms to RFC1123; otherwise, False.
+
+    Notes:
+        Enforces ASCII letters, digits, and hyphens in dot-separated labels;
+        each label is 1-63 characters and must start and end with an
+        alphanumeric character. The full hostname must not exceed 253
+        characters.
+    """
     if not value or len(value) > HOSTNAME_MAX:
         return False
 
@@ -135,6 +262,28 @@ _multi_dash_re = re.compile(r"-+")
 
 
 def coerce_to_rfc1123(value: str) -> str:
+    """
+    Normalize and coerce an arbitrary string into an RFC1123-compatible
+    hostname.
+
+    The process lowercases the input, removes unsupported characters, replaces
+    invalid characters with hyphens, normalizes repeated separators, trims
+    leading/trailing hyphens from labels, and truncates labels and the overall
+    hostname to RFC1123 limits. If the value cannot be coerced into a valid
+    hostname, a `ValueError` is raised.
+
+    Parameters:
+        value:
+            The input string to coerce into a hostname.
+
+    Returns:
+        A string that complies with RFC1123 hostname rules.
+
+    Raises:
+        ValueError:
+            If the input is empty or cannot be transformed into a valid
+            hostname.
+    """
     if not value:
         raise ValueError("Cannot coerce empty hostname")
 
@@ -177,6 +326,18 @@ def coerce_to_rfc1123(value: str) -> str:
 
 
 class CoercingStrategy(HostnameStrategy):
+    """
+    Wraps another strategy and coerces its result to RFC1123 if present.
+
+    If the inner strategy returns `None`, no coercion happens and `None` is
+    returned. If a non-empty hostname is returned, it is passed through
+    `coerce_to_rfc1123`.
+
+    Parameters:
+        inner:
+            The inner strategy whose output should be coerced.
+    """
+
     def __init__(self, inner: HostnameStrategy):
         self.inner = inner
 
@@ -190,10 +351,36 @@ HostnameInput = str | Callable[[HostnameContext], str | None] | HostnameStrategy
 
 
 class HostnameResolutionError(Exception):
-    pass
+    """
+    Raised when a hostname cannot be resolved or validated.
+
+    This error wraps exceptions thrown by strategies and signals failure to
+    produce a usable hostname for a check/environment combination.
+    """
 
 
 def to_strategy(value: HostnameInput | None) -> HostnameStrategy | None:
+    """
+    Convert user-facing hostname input into a `HostnameStrategy`.
+
+    Accepts one of the following inputs:
+
+    - A string interpreted as a template for `TemplateStrategy`.
+    - A callable taking `HostnameContext` and returning a hostname or `None`.
+    - An object implementing the `HostnameStrategy` protocol.
+
+    Parameters:
+        value:
+            The value to convert into a strategy, or `None` to indicate no
+            strategy.
+
+    Returns:
+        A `HostnameStrategy` instance or `None` if the input was `None`.
+
+    Raises:
+        TypeError:
+            If the input type is not supported.
+    """
     if value is None:
         return None
     if isinstance(value, str):
@@ -218,6 +405,44 @@ def resolve_hostname(
     fallback_to_default_hostname_generation: bool = True,
     coerce_into_valid_hostname: bool = True,
 ) -> str:
+    """
+    Resolve the final hostname for a check execution.
+
+    Precedence:
+
+    1. Per-result override on the `CheckResult` (if present).
+    2. Check-level strategy on the `Check`.
+    3. Environment-level strategy on the `Environment`.
+    4. Watchpost-level strategy on the application.
+    5. Optional fallback to "{service_name}-{environment.name}" if enabled.
+
+    The resolved hostname must conform to RFC1123. If it does not and
+    `coerce_into_valid_hostname` is True, the hostname is coerced using
+    `coerce_to_rfc1123`. Otherwise, a `HostnameResolutionError` is raised.
+
+    Parameters:
+        watchpost:
+            The Watchpost application providing a default strategy.
+        check:
+            The check for which a hostname is being resolved.
+        environment:
+            The environment in which the check runs.
+        result:
+            Optional result that may contain a per-result hostname override.
+        fallback_to_default_hostname_generation:
+            Whether to fall back to "{service_name}-{environment.name}" when no
+            strategy produced a hostname.
+        coerce_into_valid_hostname:
+            Whether to coerce a non-compliant hostname into RFC1123 format.
+
+    Returns:
+        The resolved hostname.
+
+    Raises:
+        HostnameResolutionError:
+            If no hostname can be resolved, a strategy fails, or a non-compliant
+            hostname cannot be coerced.
+    """
     ctx = HostnameContext.new(
         check=check,
         environment=environment,

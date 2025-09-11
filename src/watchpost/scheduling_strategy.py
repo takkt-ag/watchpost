@@ -14,6 +14,56 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Scheduling strategies and validation.
+
+Defines how Watchpost decides whether a check should run from the current
+execution environment against a target environment. Strategies encapsulate
+constraints (where a check must execute from, which targets it may run against,
+or that current and target must match) and combine into a single scheduling
+decision.
+
+Main concepts:
+
+- SchedulingStrategy: Protocol implemented by concrete strategies.
+- SchedulingDecision: Outcome used by the executor (SCHEDULE, SKIP,
+  DONT_SCHEDULE).
+- DetectImpossibleCombinationStrategy: Validation strategy that detects and
+  raises `InvalidCheckConfiguration` when multiple strategies are mutually
+  incompatible, so a check could never be scheduled.
+
+Notes:
+
+- These rules affect what Checkmk will eventually see: if a check is never
+  scheduled in a given environment, no service is reported from that node.
+- "Current == Target" refers to running a check from the same environment that
+  it targets (common for in-cluster checks). When this is required, the allowed
+  execution environments and allowed target environments must overlap; otherwise
+  the configuration is impossible.
+
+Example:
+
+>>> from watchpost.environment import Environment
+>>> from watchpost.datasource import Datasource
+>>> from watchpost.scheduling_strategy import (
+...     MustRunInGivenExecutionEnvironmentStrategy,
+...     MustRunAgainstGivenTargetEnvironmentStrategy,
+... )
+
+>>> Monitoring = Environment("Monitoring")
+>>> Preprod = Environment("Preprod")
+
+>>> class LogSystem(Datasource):
+...     # Run from Monitoring, but may target Monitoring or Preprod
+...     scheduling_strategies = (
+...         MustRunInGivenExecutionEnvironmentStrategy(Monitoring),
+...         MustRunAgainstGivenTargetEnvironmentStrategy(Monitoring, Preprod),
+...     )
+
+The Watchpost app collects the strategies required by involved datasources and
+applies them to each check to derive the final scheduling decision.
+"""
+
 from __future__ import annotations
 
 from enum import IntEnum
@@ -150,7 +200,21 @@ class SchedulingStrategy(Protocol):
 
 
 class MustRunInGivenExecutionEnvironmentStrategy(SchedulingStrategy):
+    """
+    Require that the check executes from one of the given execution
+    environments.
+
+    Use this when a datasource or check can only run from specific locations
+    (for example, from a monitoring environment). If the current execution
+    environment is not in the allowed set, the decision is DONT_SCHEDULE.
+    """
+
     def __init__(self, *environments: Environment):
+        """
+        Parameters:
+            environments:
+                One or more execution environments from which the check may run.
+        """
         self.supported_execution_environments = set(environments)
 
     @override
@@ -166,6 +230,15 @@ class MustRunInGivenExecutionEnvironmentStrategy(SchedulingStrategy):
 
 
 class MustRunInTargetEnvironmentStrategy(SchedulingStrategy):
+    """
+    Require that the current execution environment equals the target
+    environment.
+
+    This models "run in-environment" behavior where the check must execute
+    inside the environment it is checking. If current != target, the decision is
+    DONT_SCHEDULE.
+    """
+
     @override
     def schedule(
         self,
@@ -179,7 +252,22 @@ class MustRunInTargetEnvironmentStrategy(SchedulingStrategy):
 
 
 class MustRunAgainstGivenTargetEnvironmentStrategy(SchedulingStrategy):
+    """
+    Restrict which target environments the check may run against.
+
+    Use this to allow only specific targets (for example, only "stage"). If the
+    requested target is not in the allowed set, the decision is DONT_SCHEDULE.
+
+    This strategy does not affect from where the check executes, i.e. the
+    execution environment.
+    """
+
     def __init__(self, *environments: Environment):
+        """
+        Parameters:
+            environments:
+                One or more target environments that the check may run against.
+        """
         self.supported_target_environments = set(environments)
 
     @override
@@ -198,6 +286,23 @@ _S = TypeVar("_S", bound=SchedulingStrategy)
 
 
 class DetectImpossibleCombinationStrategy(SchedulingStrategy):
+    """
+    Detect mutually incompatible scheduling constraints and raise an error.
+
+    This strategy does not itself restrict scheduling. Instead, it validates the
+    active strategies for a check and raises `InvalidCheckConfiguration` when
+    constraints cannot be satisfied together.
+
+    Examples:
+
+    - Conflicting required execution environments with no overlap (for example,
+      one datasource requires "Monitoring" while another requires "Preprod").
+    - Allowed target environments that do not include all environments declared
+      in the `@check` decorator.
+    - A "current == target" requirement while the allowed execution and target
+      sets do not overlap, so the check can never run.
+    """
+
     @staticmethod
     def _filter_strategies(
         strategies: list[SchedulingStrategy],

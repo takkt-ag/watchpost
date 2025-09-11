@@ -14,6 +14,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Caching utilities and pluggable storage backends.
+
+This module provides a small, consistent caching API (`Cache`) and a set of
+storage backends (`Storage`) for in-memory, disk, and Redis persistence. It also
+includes a memoization decorator for function-level caching.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -34,6 +42,16 @@ T = TypeVar("T")
 
 
 def get_caller_package() -> str:
+    """
+    Return the caller's package name.
+
+    This helper inspects the call stack to determine the package of the code
+    invoking the cache. It falls back to the module name when no package is set.
+
+    Returns:
+        The package name of the caller.
+    """
+
     current_frame = inspect.currentframe()
     assert current_frame
     assert current_frame.f_back
@@ -51,8 +69,21 @@ def get_caller_package() -> str:
 
 @dataclass
 class CacheKey:
+    """
+    A compound key that uniquely identifies a cache entry within a package.
+
+    The combination of `key` and `package` forms the globally unique key used by
+    storage backends.
+    """
+
     key: Hashable
+    """
+    The user-provided key. It is unique within the given `package`.
+    """
     package: str
+    """
+    The package namespace used to separate keys across applications or checks.
+    """
 
     def __hash__(self) -> int:
         return hash((self.key, self.package))
@@ -60,24 +91,56 @@ class CacheKey:
 
 @dataclass
 class CacheEntry[T]:
+    """
+    Represents a cached value together with metadata.
+
+    This object stores the value and all information needed by backends to
+    determine freshness and validity.
+    """
+
     # Increment the version if you change the serialization format, i.e. if the types,
     # meaning of values, or other aspects of this type are modified in a way that is not
     # backwards-compatible.
     VERSION = 1
 
     cache_key: CacheKey
+    """
+    The globally unique cache key for this entry.
+    """
     value: T
+    """
+    The cached value.
+    """
 
     added_at: datetime | None
+    """
+    The timestamp when this entry was stored. `None` means the value is a
+    default and not persisted yet.
+    """
     ttl: timedelta | None
+    """
+    The time-to-live for this entry. `None` means the value does not expire.
+    """
 
     def is_expired(self) -> bool:
+        """
+        Determine whether the cache entry has expired.
+
+        Returns:
+            True if the entry is expired; otherwise False.
+        """
         if not self.added_at:
             return False
         return self.ttl is not None and datetime.now(tz=UTC) - self.added_at > self.ttl
 
 
 class Storage(ABC):
+    """
+    Base interface for cache storage backends.
+
+    Implementations persist and retrieve `CacheEntry` objects.
+    """
+
     @abstractmethod
     def get(
         self,
@@ -85,11 +148,16 @@ class Storage(ABC):
         return_expired: bool = False,
     ) -> CacheEntry[T] | None:
         """
-        :param cache_key: The key to retrieve the value for.
-        :param return_expired: Whether to return a key that has expired. The value will
-                               be returned at most once.
-        :return: A cache entry of the value from the cache if it was found, otherwise
-                 `None`.
+        Retrieve a cache entry by key.
+
+        Parameters:
+            cache_key:
+                The cache key to look up.
+            return_expired:
+                Whether to return an expired entry once before it is removed.
+
+        Returns:
+            The cache entry if found, otherwise `None`.
         """
 
     @abstractmethod
@@ -98,7 +166,11 @@ class Storage(ABC):
         entry: CacheEntry,
     ) -> None:
         """
-        :param entry: The cache entry to store
+        Persist a cache entry.
+
+        Parameters:
+            entry:
+                The cache entry to store.
         """
 
 
@@ -114,9 +186,10 @@ class ChainedStorage(Storage):
         """
         Initialize a chained storage with multiple storage backends.
 
-        :param storages: A list of storage backends to chain together. The order
-        determines the lookup order during retrieval, with the first hit being
-        returned.
+        Parameters:
+            storages:
+                Storage backends to chain. The order defines lookup priority;
+                the first backend with a hit will be used.
         """
         if not storages:
             raise ValueError("At least one storage must be provided")
@@ -163,6 +236,13 @@ class ChainedStorage(Storage):
 
 
 class InMemoryStorage(Storage):
+    """
+    A simple in-memory storage backend.
+
+    Useful for tests or ephemeral caching within a single process. Entries are
+    lost when the process exits.
+    """
+
     def __init__(self) -> None:
         self.cache: dict[CacheKey, CacheEntry] = {}
 
@@ -191,7 +271,20 @@ class InMemoryStorage(Storage):
 
 
 class DiskStorage(Storage):
+    """
+    A disk-backed storage backend using Pickle-serialized `CacheEntry` objects.
+
+    Entries are stored under a versioned directory and sharded by a hash prefix.
+    """
+
     def __init__(self, directory: str):
+        """
+        Initialize the disk storage.
+
+        Parameters:
+            directory:
+                Directory root where cache files are written.
+        """
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
 
@@ -246,6 +339,13 @@ class DiskStorage(Storage):
 
 
 class RedisStorage(Storage):
+    """
+    A Redis-backed storage backend.
+
+    When `use_redis_ttl` is True, Redis key expiration is used so expired
+    entries are never returned by `get`.
+    """
+
     def __init__(
         self,
         redis_client: Redis,
@@ -254,15 +354,17 @@ class RedisStorage(Storage):
         redis_key_infix: str | None = None,
     ):
         """
-        Initialize a Redis-based storage for cache entries.
+        Initialize the Redis storage.
 
-        :param redis_client: An instantiated Redis client
-        :param use_redis_ttl: Whether to use the Redis TTL for cache entries. If
-        `True`, expired entries will never be returned, i.e.
-        `get(..., return_expired=True)` will always return `None` if the entry
-        has expired.
-        :param redis_key_infix: An optional infix to use for Redis keys to
-        ensure the keys don't collide between multiple caches or watchposts.
+        Parameters:
+            redis_client:
+                The Redis client instance.
+            use_redis_ttl:
+                Whether to use Redis TTL for automatic expiry. When `True`,
+                expired entries are not returned.
+            redis_key_infix:
+                Optional infix to namespace keys to avoid collisions between
+                multiple caches or watchposts.
         """
         self.redis = redis_client
         self._use_redis_ttl = use_redis_ttl
@@ -270,10 +372,14 @@ class RedisStorage(Storage):
 
     def _get_redis_key(self, cache_key: CacheKey) -> str:
         """
-        Generate a Redis key from a CacheKey.
+        Generate the Redis key for a given cache key.
 
-        :param cache_key: The cache key to generate a Redis key for
-        :return: A string key for use with Redis
+        Parameters:
+            cache_key:
+                The cache key to encode.
+
+        Returns:
+            The namespaced Redis key.
         """
         key_hash = hashlib.sha256(
             str((cache_key.package, cache_key.key)).encode()
@@ -293,9 +399,16 @@ class RedisStorage(Storage):
         """
         Retrieve a cache entry from Redis.
 
-        :param cache_key: The key to retrieve the value for
-        :param return_expired: Whether to return a key that has expired
-        :return: A cache entry if found, otherwise None
+        Parameters:
+            cache_key:
+                The key to retrieve the value for.
+            return_expired:
+                Whether to return an expired entry once before it is removed.
+                (If Redis's TTL is used, an expired entry is never returned and
+                this has no effect.)
+
+        Returns:
+            The cache entry if found, otherwise `None`.
         """
         redis_key = self._get_redis_key(cache_key)
         data: Any = self.redis.get(redis_key)
@@ -320,7 +433,9 @@ class RedisStorage(Storage):
         """
         Store a cache entry in Redis.
 
-        :param entry: The cache entry to store
+        Parameters:
+            entry:
+                The cache entry to store.
         """
         redis_key = self._get_redis_key(entry.cache_key)
         data = pickle.dumps(entry)
@@ -338,6 +453,13 @@ class RedisStorage(Storage):
 
 
 class Cache:
+    """
+    High-level caching API using a pluggable storage backend.
+
+    Use `get` and `store` to interact with the cache directly, or the `memoize`
+    decorator to cache function results.
+    """
+
     def __init__(self, storage: Storage):
         self.storage = storage
 
@@ -352,15 +474,24 @@ class Cache:
         """
         Retrieve a value from the cache.
 
-        :param key: The key to retrieve the value for. This key must be hashable. The
-                    key is unique within the package that you are invoking the cache
-                    from.
-        :param default: The value to return if the key is not found in the cache.
-        :param package: The package that the key is unique within. If not provided, the
-        :param return_expired: If True, return the cache entry even if it is expired.
-        :return: A cache entry of the value from the cache if it was found. If the key
-                 was not found in the cache, `None` is returned if no default value
-                 was provided, otherwise a cache entry with the default value.
+        Parameters:
+            key:
+                The key to look up. Must be hashable and unique within the given
+                package.
+            default:
+                An optional default value to return when the key is not found.
+            package:
+                The package namespace. If not provided, the package of the
+                caller is used.
+            return_expired:
+                Whether to return an expired entry once before it is removed.
+                (This behavior does depend on the storage backend supporting
+                this.)
+
+        Returns:
+            The cache entry if found. If not found, returns `None` when no
+            default is given, otherwise a cache entry wrapping the default
+            value.
         """
 
         default_cache_entry = None
@@ -399,16 +530,21 @@ class Cache:
         """
         Store a value in the cache.
 
-        :param key: The key to store the value under. This key must be hashable. The key
-                    is unique within the package that you are invoking the cache from
-                    (i.e. the same key can be used by multiple checks across different
-                    packages without conflicts).
-        :param value: The value to store in the cache.
-        :param package: The package that the key is unique within. If not provided, the
-                        package of the caller is used.
-        :param ttl: The time-to-live for the cache entry. If not provided, the entry
-                    will never expire.
-        :return: The cache entry that was stored.
+        Parameters:
+            key:
+                The key under which to store the value. Must be hashable and
+                unique within the given package.
+            value:
+                The value to store.
+            package:
+                The package namespace. If not provided, the package of the
+                caller is used.
+            ttl:
+                Optional time-to-live for the entry. When omitted, the entry
+                does not expire.
+
+        Returns:
+            The cache entry that was stored.
         """
 
         cache_entry = CacheEntry(
@@ -434,6 +570,37 @@ class Cache:
         return_expired: bool = False,
         ttl: timedelta | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:  # pylint: disable=too-many-arguments
+        """
+        Memoize a function by caching its return value.
+
+        Use either a fixed `key` or a `key_generator` to compute the cache key
+        from call arguments. If `key` contains format placeholders like "{arg}",
+        they will be formatted from the function's bound arguments.
+
+        Parameters:
+            key:
+                A static key or a format string used to build the key. Mutually
+                exclusive with `key_generator`.
+            key_generator:
+                A callable that receives the function's arguments and returns a
+                hashable key. Mutually exclusive with `key`.
+            package:
+                The package namespace. If not provided, the package of the
+                caller is used.
+            return_expired:
+                Whether to return an expired entry once before it is recomputed
+                and overwritten.
+            ttl:
+                Optional time-to-live for stored values.
+
+        Returns:
+            A decorator that wraps the function and provides cached results.
+
+        Notes:
+            - Only one of `key` or `key_generator` must be provided.
+            - If `return_expired` is True, an expired value may be returned
+              once; it is then replaced with a fresh value.
+        """
         if key and key_generator:
             raise ValueError("Only one of key or key_generator can be provided.")
         if not key and not key_generator:

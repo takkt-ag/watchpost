@@ -14,6 +14,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Utility helpers for Watchpost.
+"""
+
 import inspect
 from dataclasses import dataclass
 from datetime import timedelta
@@ -26,6 +30,13 @@ import watchpost
 
 @dataclass
 class InvocationInformation:
+    """
+    Call-site information for an invocation.
+
+    Holds the relative path of the module and the line number where the
+    invocation occurred.
+    """
+
     relative_path: str
     line_number: int
 
@@ -39,6 +50,19 @@ class InvocationInformation:
 
 
 def get_invocation_information() -> InvocationInformation | None:
+    """
+    Return call-site information for the caller's caller.
+
+    Inspects the call stack to locate the module and line number of the function
+    that invoked the caller. The module path is made relative to the project
+    root inferred from the watchpost package. If any information cannot be
+    determined, returns None.
+
+    Returns:
+        InvocationInformation with the relative path and line number, or None if
+        it cannot be determined.
+    """
+
     # Get the frame of the function that called the function that called this
     current_frame = inspect.currentframe()
     if not current_frame or not current_frame.f_back or not current_frame.f_back.f_back:
@@ -73,6 +97,22 @@ def get_invocation_information() -> InvocationInformation | None:
 
 
 def normalize_to_timedelta(value: timedelta | str | None) -> timedelta | None:
+    """
+    Normalize a value to a datetime.timedelta.
+
+    - If value is None, return None.
+    - If value is already a timedelta, return it unchanged.
+    - If value is a string, parse it with timelength (e.g., "5m", "2h30m") and
+      return the corresponding timedelta.
+
+    Parameters:
+        value:
+            A timedelta, a string time expression, or None.
+
+    Returns:
+        A timedelta corresponding to the input, or None.
+    """
+
     if value is None:
         return None
     if isinstance(value, timedelta):

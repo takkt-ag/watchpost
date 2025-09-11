@@ -14,6 +14,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Threaded check executor for Watchpost.
+
+Provides a non-blocking, key-aware execution engine that de-duplicates work per
+key and can run both synchronous and asynchronous check functions. It exposes
+lightweight statistics used by the HTTP endpoints and tests.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +41,14 @@ logger = logging.getLogger(f"{__package__}.{__name__}")
 
 
 class AsyncioLoopThread(threading.Thread):
+    """
+    Run an asyncio event loop in a dedicated background thread.
+
+    The thread creates its own event loop and runs it forever until stopped.
+    `CheckExecutor` uses this to execute coroutine functions without blocking
+    the worker threads in the thread pool.
+    """
+
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.loop: asyncio.AbstractEventLoop | None = None
@@ -52,18 +68,65 @@ class AsyncioLoopThread(threading.Thread):
 
 @dataclass
 class _KeyState[T]:
+    """
+    Internal state for a single execution key.
+
+    Tracks currently running futures and those that are finished and awaiting
+    pickup via `result()`.
+    """
+
     active_futures: list[Future[T]] = field(default_factory=list)
+    """
+    Futures currently submitted for this key.
+    """
+
     finished_futures: deque[Future[T]] = field(default_factory=deque)
+    """
+    Completed futures waiting for their results to be retrieved.
+    """
 
 
 class CheckExecutor[T]:
+    """
+    Execute checks concurrently while avoiding duplicate work per key.
+
+    This executor wraps a `ThreadPoolExecutor` and adds key-aware submission:
+    if a job for a key is already running, later submissions with the same key
+    return the existing future unless `resubmit=True` is passed. The executor
+    can also run coroutine functions by scheduling them on a single background
+    asyncio event loop.
+    """
+
     @dataclass
     class Statistics:
+        """
+        Summary statistics of the executor state.
+
+        These values feed monitoring endpoints and tests to provide visibility
+        into how many jobs are running, finished, or awaiting pickup.
+        """
+
         total: int
+        """
+        Number of active futures across all keys (running + awaiting pickup).
+        """
         completed: int
+        """
+        Number of successfully completed futures awaiting pickup.
+        """
         errored: int
+        """
+        Number of futures that completed with an exception and await pickup.
+        """
         running: int
+        """
+        Number of futures currently executing (not yet completed).
+        """
         awaiting_pickup: int
+        """
+        Total number of finished futures (completed + errored) that have not
+        yet been retrieved via `result()`.
+        """
 
     def __init__(
         self,
@@ -75,6 +138,13 @@ class CheckExecutor[T]:
 
     @property
     def asyncio_loop(self) -> asyncio.AbstractEventLoop:
+        """
+        Return the background asyncio event loop, starting it on first access.
+
+        Returns:
+            The event loop used to run coroutine functions submitted to this
+            executor.
+        """
         if not self._asyncio_loop_thread:
             self._asyncio_loop_thread = AsyncioLoopThread(daemon=True)
             self._asyncio_loop_thread.start()
@@ -94,6 +164,15 @@ class CheckExecutor[T]:
         self.shutdown(wait=True)
 
     def shutdown(self, wait: bool = False) -> None:
+        """
+        Shut down the executor and stop the background event loop.
+
+        Parameters:
+            wait:
+                If true, waits for all running futures to finish before
+                returning. This is passed through to the underlying
+                `ThreadPoolExecutor.shutdown()`.
+        """
         if self._asyncio_loop_thread:
             self._asyncio_loop_thread.stop()
         self.executor.shutdown(wait=wait)
@@ -106,6 +185,31 @@ class CheckExecutor[T]:
         resubmit: bool = False,
         **kwargs: P.kwargs,
     ) -> Future:
+        """
+        Submit a function to run for a key, deduplicating concurrent work.
+
+        If another job with the same key is already running and `resubmit` is
+        false, this returns the existing future instead of starting a new one.
+        Coroutine functions are scheduled on the background asyncio loop.
+
+        Parameters:
+            key:
+                The deduplication key. Only one active job per key is started
+                unless `resubmit=True` is given.
+            func:
+                The callable to execute. May be synchronous or a coroutine
+                function.
+            *args:
+                Positional arguments passed to the callable.
+            resubmit:
+                When true, always schedules a new job even if one with the same
+                key is already running.
+            **kwargs:
+                Keyword arguments passed to the callable.
+
+        Returns:
+            A Future representing the running or already existing job.
+        """
         key_state = self._state.setdefault(key, _KeyState())
 
         if not resubmit and key_state.active_futures:
@@ -133,6 +237,24 @@ class CheckExecutor[T]:
             logger.warning("Future %s completed after state cleanup", key)
 
     def result(self, key: Hashable) -> T | None:
+        """
+        Retrieve the next finished result for a key.
+
+        If no job for the key exists, raises a KeyError. If jobs exist but none
+        has completed yet, returns None. When the last active future for a key
+        is consumed, the internal state for the key is cleaned up.
+
+        Parameters:
+            key:
+                The key used when submitting the job(s).
+
+        Returns:
+            The completed result value or None if the job is still running.
+
+        Raises:
+            KeyError:
+                If no job for the given key has been submitted.
+        """
         key_state = self._state.get(key)
 
         if not key_state or not key_state.finished_futures:
@@ -156,6 +278,13 @@ class CheckExecutor[T]:
         return finished_future.result()
 
     def statistics(self) -> CheckExecutor.Statistics:
+        """
+        Compute executor statistics.
+
+        Returns:
+            A `CheckExecutor.Statistics` instance summarizing total, completed,
+            errored, running, and awaiting pickup futures.
+        """
         total = 0
         completed = 0
         errored = 0
@@ -181,6 +310,14 @@ class CheckExecutor[T]:
         )
 
     def errored(self) -> dict[str, str]:
+        """
+        Return a mapping of keys to stringified exceptions for errored jobs.
+
+        Returns:
+            A dict mapping the string form of each key to the corresponding
+            exception message of futures that completed with an error and have
+            not yet been picked up via `result()`.
+        """
         errors = {}
         for key, key_state in self._state.items():
             for future in key_state.finished_futures:
@@ -192,16 +329,16 @@ class CheckExecutor[T]:
 
 class BlockingCheckExecutor[T](CheckExecutor[T]):
     """
-    A BlockingCheckExecutor class for executing checks with synchronous behavior.
+    Execute checks while blocking until results are available.
 
-    This class extends the CheckExecutor class and allows for blocking execution
-    of tasks until all associated futures are completed. It can be used in
-    scenarios where synchronization of task execution results is required, such
-    as tests or in the CLI.
+    This variant waits for all futures of a key to complete when `result()` is
+    called. It is useful for tests and simple CLI usage where non-blocking
+    behavior is not required.
 
-    PLEASE DO NOT USE THIS EXECUTOR UNLESS YOU KNOW WHAT YOU ARE DOING! All
-    regular uses of Watchpost should make use of the default `CheckExecutor`
-    class.
+    Notes:
+        Prefer the default `CheckExecutor` for production use. This class is
+        provided for special cases (such as the CLI or in unit-tests) where
+        synchronous behavior is desired.
     """
 
     def __init__(
@@ -215,5 +352,16 @@ class BlockingCheckExecutor[T](CheckExecutor[T]):
         self,
         key: Hashable,
     ) -> T | None:
+        """
+        Wait for all active futures of the key and then return the next result.
+
+        Parameters:
+            key:
+                The key used when submitting the job(s).
+
+        Returns:
+            The completed result value, or None if no finished results are
+            queued after waiting.
+        """
         wait(self._state[key].active_futures, return_when="ALL_COMPLETED")
         return super().result(key)

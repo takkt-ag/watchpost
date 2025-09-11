@@ -14,6 +14,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Starlette HTTP routes for Watchpost.
+
+This module exposes operational endpoints and the streaming root endpoint:
+
+- `/healthcheck` returns 204 for liveness checks.
+- `/executor/statistics` returns executor statistics as JSON.
+- `/executor/errored` returns a list of errored checks as JSON.
+- `/` streams Checkmk-compatible output from running checks.
+"""
+
 from dataclasses import asdict
 
 from starlette.requests import Request

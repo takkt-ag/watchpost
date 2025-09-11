@@ -14,6 +14,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Result types and builders for Watchpost checks.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -24,7 +28,7 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from enum import Enum
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, assert_never, cast
 
 from .utils import InvocationInformation
 
@@ -36,6 +40,26 @@ Details = str | dict | Exception
 
 
 def normalize_details(details: Details | None) -> str | None:
+    """
+    Normalize and format the given details into a string.
+
+    This function processes the input `details` parameter and normalizes it into
+    a string representation based on its type. If the input is `None`, it
+    returns `None`. For `Exception` objects, it extracts and formats the
+    exception details. For dictionaries, it formats each key-value pair as a
+    newline-separated string. Empty strings are normalized to `None`. Other
+    string inputs are returned unchanged.
+
+    Parameters:
+        details:
+            The input details to normalize. It can be of type `Details` (e.g.,
+            exception, string, dictionary), or `None`.
+
+    Returns:
+        A formatted string representation of the input details, or `None` if the
+        input is `None` or an empty string.
+    """
+
     if details is None:
         return None
 
@@ -53,6 +77,13 @@ def normalize_details(details: Details | None) -> str | None:
 
 @dataclass
 class Thresholds:
+    """
+    Represents threshold values with warning and critical levels.
+
+    This maps to the Checkmk concept of thresholds exactly and thus directly
+    relates to metrics, see the `Metric` class.
+    """
+
     warning: int | float
     critical: int | float
 
@@ -65,6 +96,12 @@ class Thresholds:
 
 @dataclass
 class Metric:
+    """
+    Represents a measurable metric with an optional threshold configuration.
+
+    This maps to the Checkmk concept of metrics exactly.
+    """
+
     name: str
     value: int | float
     levels: Thresholds | None = None
@@ -92,6 +129,12 @@ class Metric:
 
 
 class CheckState(Enum):
+    """
+    Represents the state of a check.
+
+    This maps to the Checkmk concept of states exactly.
+    """
+
     OK = 0
     WARN = 1
     CRIT = 2
@@ -102,6 +145,18 @@ class CheckState(Enum):
 
     @property
     def check_function(self) -> Callable[..., CheckResult]:
+        """
+        Determines the appropriate check function based on the current check
+        state.
+
+        This property evaluates the current `CheckState` of the instance and
+        matches it to a corresponding check function (`ok`, `warn`, `crit`, or
+        `unknown`).
+
+        Returns:
+            The function corresponding to the current state of the check.
+        """
+
         match self:
             case CheckState.OK:
                 return ok
@@ -111,17 +166,61 @@ class CheckState(Enum):
                 return crit
             case CheckState.UNKNOWN:
                 return unknown
-        raise ValueError("Unknown check state")
+            case _:
+                assert_never(self)  # type: ignore[type-assertion-failure]
 
 
 @dataclass(init=False)
 class CheckResult:
+    """
+    Represents the result of a check performed on a system or component.
+
+    This class encapsulates the result of a check operation, providing details
+    such as the state of the check, a summary, optional details, a name suffix,
+    metrics, and hostname information. It is designed to store and convey the
+    outcome of a check operation in a structured format.
+    """
+
     check_state: CheckState
+    """
+    The state of the check, indicating whether it was successful, warning,
+    critical, or unknown.
+    """
+
     summary: str
+    """
+    A summary of the check result, indicating the outcome of the check.
+    
+    Checkmk will show this summary on pages like a host overview.
+    """
+
     details: str | None = None
+    """
+    A detailed output of the check result, providing additional information
+    beyond the summary.
+    
+    Checkmk will show this detailed output when you are viewing a specific
+    service.
+    """
+
     name_suffix: str | None = None
+    """
+    A suffix to add to the check name as defined in the `@check` decorator.
+    
+    This enables a single check function to return multiple results that create
+    multiple services on the Checkmk side.
+    """
+
     metrics: list[Metric] | None = None
+    """
+    An optional list of metrics to associate with the check.
+    """
+
     hostname: HostnameInput | None = None
+    """
+    An optional hostname that overrides the hostname that would have been used
+    otherwise.
+    """
 
     def __init__(
         self,
@@ -147,6 +246,36 @@ def ok(
     metrics: list[Metric] | None = None,
     alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
+    """
+    Generates a CheckResult object indicating an OK check state.
+
+    This function creates and returns a CheckResult indicating the system or
+    component is in an OK state. It allows for passing additional information
+    such as a summary, details, name suffix, metrics, or an alternative
+    hostname.
+
+    Parameters:
+        summary:
+            A summary of the check result, indicating the outcome of the check.
+            Checkmk will show this summary on pages like a host overview.
+        details:
+            A detailed output of the check result, providing additional
+            information beyond the summary. Checkmk will show this detailed
+            output when you are viewing a specific service.
+        name_suffix:
+            A suffix to add to the check name as defined in the `@check`
+            decorator. This enables a single check function to return multiple
+            results that create multiple services on the Checkmk side.
+        metrics:
+            An optional list of metrics to associate with the check.
+        alternative_hostname:
+            An optional hostname that overrides the hostname that would have
+            been used otherwise.
+
+    Returns:
+        A `CheckResult` object representing the OK check result.
+    """
+
     return CheckResult(
         check_state=CheckState.OK,
         summary=summary,
@@ -164,6 +293,36 @@ def warn(
     metrics: list[Metric] | None = None,
     alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
+    """
+    Generates a CheckResult object indicating a WARN check state.
+
+    This function creates and returns a CheckResult indicating the system or
+    component is in a WARN state. It allows for passing additional information
+    such as a summary, details, name suffix, metrics, or an alternative
+    hostname.
+
+    Parameters:
+        summary:
+            A summary of the check result, indicating the outcome of the check.
+            Checkmk will show this summary on pages like a host overview.
+        details:
+            A detailed output of the check result, providing additional
+            information beyond the summary. Checkmk will show this detailed
+            output when you are viewing a specific service.
+        name_suffix:
+            A suffix to add to the check name as defined in the `@check`
+            decorator. This enables a single check function to return multiple
+            results that create multiple services on the Checkmk side.
+        metrics:
+            An optional list of metrics to associate with the check.
+        alternative_hostname:
+            An optional hostname that overrides the hostname that would have
+            been used otherwise.
+
+    Returns:
+        A `CheckResult` object representing the WARN check result.
+    """
+
     return CheckResult(
         check_state=CheckState.WARN,
         summary=summary,
@@ -181,6 +340,36 @@ def crit(
     metrics: list[Metric] | None = None,
     alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
+    """
+    Generates a CheckResult object indicating a CRIT check state.
+
+    This function creates and returns a CheckResult indicating the system or
+    component is in a CRIT state. It allows for passing additional information
+    such as a summary, details, name suffix, metrics, or an alternative
+    hostname.
+
+    Parameters:
+        summary:
+            A summary of the check result, indicating the outcome of the check.
+            Checkmk will show this summary on pages like a host overview.
+        details:
+            A detailed output of the check result, providing additional
+            information beyond the summary. Checkmk will show this detailed
+            output when you are viewing a specific service.
+        name_suffix:
+            A suffix to add to the check name as defined in the `@check`
+            decorator. This enables a single check function to return multiple
+            results that create multiple services on the Checkmk side.
+        metrics:
+            An optional list of metrics to associate with the check.
+        alternative_hostname:
+            An optional hostname that overrides the hostname that would have
+            been used otherwise.
+
+    Returns:
+        A `CheckResult` object representing the CRIT check result.
+    """
+
     return CheckResult(
         check_state=CheckState.CRIT,
         summary=summary,
@@ -198,6 +387,36 @@ def unknown(
     metrics: list[Metric] | None = None,
     alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
+    """
+    Generates a CheckResult object indicating an UNKNOWN check state.
+
+    This function creates and returns a CheckResult indicating the system or
+    component is in an UNKNOWN state. It allows for passing additional
+    information such as a summary, details, name suffix, metrics, or an
+    alternative hostname.
+
+    Parameters:
+        summary:
+            A summary of the check result, indicating the outcome of the check.
+            Checkmk will show this summary on pages like a host overview.
+        details:
+            A detailed output of the check result, providing additional
+            information beyond the summary. Checkmk will show this detailed
+            output when you are viewing a specific service.
+        name_suffix:
+            A suffix to add to the check name as defined in the `@check`
+            decorator. This enables a single check function to return multiple
+            results that create multiple services on the Checkmk side.
+        metrics:
+            An optional list of metrics to associate with the check.
+        alternative_hostname:
+            An optional hostname that overrides the hostname that would have
+            been used otherwise.
+
+    Returns:
+        A `CheckResult` object representing the UNKNOWN check result.
+    """
+
     return CheckResult(
         check_state=CheckState.UNKNOWN,
         summary=summary,
@@ -209,8 +428,29 @@ def unknown(
 
 
 class OngoingCheckResult:
+    """
+    An "ongoing check result" represents a builder that allows you to build up a
+    new check result by adding multiple OK/WARN/UNKNOWN/CRIT results, called
+    "partials", which will eventually result in a regular check result that
+    holds the worst check state provided by the individual results.
+
+    Use of this builder greatly simplifies scenarios where your check function
+    validates multiple aspects of a single system or component but only returns
+    a single check result: by allowing you to provide the status of each aspect
+    as you check it through simple function calls on the builder instead of
+    having to manually combine the results into a single check result, you can
+    reduce the complexity of your check function and improve its readability.
+
+    Constructing this builder is recommended through the top-level
+    `build_result` available in this module.
+    """
+
     @dataclass
     class Partial:
+        """
+        The internal type representing a partial result of a check.
+        """
+
         check_state: CheckState
         summary: str
         details: Details | None
@@ -229,6 +469,11 @@ class OngoingCheckResult:
         metrics: list[Metric] | None = None,
         alternative_hostname: HostnameInput | None = None,
     ):
+        """
+        NOTE: please prefer using the `build_result` function available in this
+        module instead of calling this constructor directly.
+        """
+
         self.ok_summary = ok_summary
         self.fail_summary = fail_summary
         self.base_details = base_details
@@ -239,6 +484,11 @@ class OngoingCheckResult:
 
     @property
     def check_state(self) -> CheckState:
+        """
+        The overall check state of the builder, calculated based on the worst
+        check state of the individual results.
+        """
+
         if not self.results:
             return CheckState.OK
 
@@ -250,6 +500,17 @@ class OngoingCheckResult:
         return max(result.check_state for result in self.results)
 
     def add_check_result(self, check_result: CheckResult) -> None:
+        """
+        Add a check result to the builder as a partial result.
+
+        For most use cases you probably want to use the higher-level `ok`,
+        `warn`, `crit`, and `unknown` functions instead.
+
+        Parameters:
+            check_result:
+                The check result to add as a partial result.
+        """
+
         self.results.append(
             OngoingCheckResult.Partial(
                 check_state=check_result.check_state,
@@ -259,24 +520,88 @@ class OngoingCheckResult:
         )
 
     def ok(self, summary: str, details: Details | None = None) -> None:
+        """
+        Add an OK result to the builder as a partial result.
+
+        Parameters:
+            summary:
+                A summary of the check result, indicating the outcome of the
+                check. Checkmk will show this summary on pages like a host
+                overview.
+            details:
+                A detailed output of the check result, providing additional
+                information beyond the summary. Checkmk will show this detailed
+                output when you are viewing a specific service.
+        """
+
         self.results.append(OngoingCheckResult.Partial(CheckState.OK, summary, details))
 
     def warn(self, summary: str, details: Details | None = None) -> None:
+        """
+        Add a WARN result to the builder as a partial result.
+
+        Parameters:
+            summary:
+                A summary of the check result, indicating the outcome of the
+                check. Checkmk will show this summary on pages like a host
+                overview.
+            details:
+                A detailed output of the check result, providing additional
+                information beyond the summary. Checkmk will show this detailed
+                output when you are viewing a specific service.
+        """
+
         self.results.append(
             OngoingCheckResult.Partial(CheckState.WARN, summary, details)
         )
 
     def crit(self, summary: str, details: Details | None = None) -> None:
+        """
+        Add a CRIT result to the builder as a partial result.
+
+        Parameters:
+            summary:
+                A summary of the check result, indicating the outcome of the
+                check. Checkmk will show this summary on pages like a host
+                overview.
+            details:
+                A detailed output of the check result, providing additional
+                information beyond the summary. Checkmk will show this detailed
+                output when you are viewing a specific service.
+        """
+
         self.results.append(
             OngoingCheckResult.Partial(CheckState.CRIT, summary, details)
         )
 
     def unknown(self, summary: str, details: Details | None = None) -> None:
+        """
+        Add an UNKNOWN result to the builder as a partial result.
+
+        Parameters:
+            summary:
+                A summary of the check result, indicating the outcome of the
+                check. Checkmk will show this summary on pages like a host
+                overview.
+            details:
+                A detailed output of the check result, providing additional
+                information beyond the summary. Checkmk will show this detailed
+                output when you are viewing a specific service.
+        """
+
         self.results.append(
             OngoingCheckResult.Partial(CheckState.UNKNOWN, summary, details)
         )
 
     def to_check_result(self) -> CheckResult:
+        """
+        Finalize this builder by turning it into a check result.
+
+        The created result holds the cumulative data of all partial results,
+        with the worst check state as determined by the check state of the
+        individual results.
+        """
+
         maximum_state = self.check_state
 
         details = None
@@ -307,6 +632,40 @@ def build_result(
     metrics: list[Metric] | None = None,
     alternative_hostname: HostnameInput | None = None,
 ) -> OngoingCheckResult:
+    """
+    Start building up a new check result that allows adding multiple
+    OK/WARN/UNKNOWN/CRIT results, called "partials", eventually resulting in a
+    regular check result that holds the worst check state provided by the
+    individual results.
+
+    Use of this builder greatly simplifies scenarios where your check function
+    validates multiple aspects of a single system or component but only returns
+    a single check result: by allowing you to provide the status of each aspect
+    as you check it through simple function calls on the builder instead of
+    having to manually combine the results into a single check result, you can
+    reduce the complexity of your check function and improve its readability.
+
+    Parameters:
+        ok_summary:
+            Overall check summary that will be shown if the final result is OK.
+        fail_summary:
+            Overall check summary that will be shown if the final result is
+            WARN, UNKNOWN, or CRIT.
+        base_details:
+            Optional base details for the check result. They will always be
+            included and then enriched by the details provided by partial results.
+        name_suffix:
+            Optional suffix for the check result name.
+        metrics:
+            Optional list of metrics associated with the check.
+        alternative_hostname:
+            Optional alternative hostname input for the check.
+
+    Returns:
+        An instance of OngoingCheckResult initialized with the provided
+        parameters and ready to receive partial results.
+    """
+
     return OngoingCheckResult(
         ok_summary=ok_summary,
         fail_summary=fail_summary,
@@ -372,6 +731,12 @@ def normalize_check_function_result(
 
 @dataclass
 class ExecutionResult:
+    """
+    This is an internal type that represents the final execution result of a
+    check, containing everything required to turn it into Checkmk-compatible
+    output.
+    """
+
     piggyback_host: str
     service_name: str
     service_labels: dict[str, str]

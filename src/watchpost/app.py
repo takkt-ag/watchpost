@@ -14,6 +14,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Watchpost application and Starlette integration.
+
+This module provides the `Watchpost` ASGI application that discovers and runs
+checks, manages datasources, applies scheduling strategies, resolves hostnames,
+coordinates execution via an internal executor, and exposes HTTP endpoints.
+
+Notes:
+    - The app streams Checkmk-compatible output from `/`.
+    - Operational endpoints expose executor statistics and errors.
+    - Global app context is available via `current_app` in `globals.py`.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -64,6 +77,21 @@ _DF = TypeVar("_DF", bound=DatasourceFactory)
 
 
 class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
+    """
+    Internal wrapper representing a datasource that can be instantiated later.
+
+    The instance can come from either a concrete `Datasource` type or be
+    produced by a `DatasourceFactory`. This wrapper defers instantiation until
+    needed, exposes scheduling strategies, and caches a single instance per
+    Watchpost process.
+
+    Notes:
+        When wrapping a factory, `scheduling_strategies` attempts to instantiate
+        the datasource to honor instance-level strategies when possible. If
+        instantiation fails (e.g., not runnable in the current environment), it
+        falls back to the factory's declared strategies.
+    """
+
     def __init__(
         self,
         *,
@@ -72,6 +100,23 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ):
+        """
+        Initialize the wrapper with either a datasource type or a factory.
+
+        Parameters:
+            datasource_type:
+                Concrete `Datasource` type to instantiate later. Mutually
+                exclusive with `factory_type`.
+            factory_type:
+                Factory type that knows how to create a concrete datasource.
+            args:
+                Positional arguments forwarded to the factory's constructor when
+                using a factory.
+            kwargs:
+                Keyword arguments forwarded to the datasource constructor (when
+                using `datasource_type`) or to the factory (when using
+                `factory_type`).
+        """
         self.datasource_type = datasource_type
         self.factory_type = factory_type
         self.args = args
@@ -82,6 +127,19 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
     def scheduling_strategies(
         self,
     ) -> tuple[SchedulingStrategy, ...] | EllipsisType | None:
+        """
+        Return scheduling strategies declared by the datasource or its factory.
+
+        If this wrapper already holds a datasource instance, and it exposes
+        `scheduling_strategies`, that value is returned. When wrapping a
+        factory, this method tries to instantiate the datasource to detect
+        instance-level strategies; if instantiation fails, the factory's
+        `scheduling_strategies` are used instead.
+
+        Returns:
+            A tuple of strategies, `Ellipsis` when unspecified, or `None` when
+            no strategies are defined.
+        """
         if self._instance is not None and (
             scheduling_strategies := getattr(
                 self._instance,
@@ -118,6 +176,18 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
         datasource_type: type[D],
         **kwargs: dict[str, Any],
     ) -> _InstantiableDatasource:
+        """
+        Create an instantiable wrapper for a concrete datasource type.
+
+        Parameters:
+            datasource_type:
+                The concrete `Datasource` class to instantiate later.
+            kwargs:
+                Keyword arguments to pass to the datasource constructor.
+
+        Returns:
+            A wrapper that can lazily instantiate the datasource.
+        """
         return cls(
             datasource_type=datasource_type,
             factory_type=None,
@@ -132,6 +202,20 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
         *args: Any,
         **kwargs: Any,
     ) -> _InstantiableDatasource:
+        """
+        Create an instantiable wrapper from a `DatasourceFactory`.
+
+        Parameters:
+            factory_type:
+                The factory type used to construct the datasource.
+            args:
+                Positional arguments forwarded to the factory's constructor.
+            kwargs:
+                Keyword arguments forwarded to the factory's constructor.
+
+        Returns:
+            A wrapper that can lazily create the datasource via the factory.
+        """
         return cls(
             datasource_type=None,
             factory_type=factory_type,
@@ -140,6 +224,13 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
         )
 
     def instance(self) -> Datasource:
+        """
+        Create or return the cached datasource instance.
+
+        Returns:
+            The instantiated datasource. Subsequent calls return the same
+            instance.
+        """
         if not self._instance:
             if self.factory_type:
                 self._instance = self.factory_type.new(
@@ -154,6 +245,20 @@ class _InstantiableDatasource[D: Datasource, DF: DatasourceFactory]:
 
 
 class Watchpost:
+    """
+    Main Watchpost application and ASGI app.
+
+    Watchpost discovers and runs checks across environments, coordinates
+    datasources, applies scheduling strategies, and generates Checkmk-compatible
+    output. A `Watchpost` instance is also an ASGI application backed by
+    Starlette and exposes operational endpoints.
+
+    Notes:
+        The instance manages a per-check result cache and a key-aware executor
+        to run checks without blocking. It also verifies check configuration and
+        hostname generation at application startup.
+    """
+
     def __init__(
         self,
         *,
@@ -168,6 +273,42 @@ class Watchpost:
         hostname_fallback_to_default_hostname_generation: bool = True,
         hostname_coerce_into_valid_hostname: bool = True,
     ):
+        """
+        Initialize a Watchpost application.
+
+        Parameters:
+            checks:
+                A list of `Check` objects or Python modules to scan for checks.
+                Modules are discovered recursively.
+            execution_environment:
+                The environment in which this Watchpost instance runs checks.
+            version:
+                Version string included in the Checkmk agent header output.
+            max_workers:
+                Maximum number of worker threads for the internal executor. Used
+                when no custom `executor` is provided.
+            executor:
+                Optional custom `CheckExecutor` to use instead of the default.
+            check_cache_storage:
+                Optional storage backend for the per-check result cache.
+                Defaults to in-memory storage.
+            default_scheduling_strategies:
+                Default strategies applied to all checks in addition to those
+                specified by checks and datasources. If not provided, the
+                `DetectImpossibleCombinationStrategy` will be applied by
+                default.
+            hostname:
+                Optional Watchpost-level hostname strategy or value used to
+                resolve the piggyback host for results.
+            hostname_fallback_to_default_hostname_generation:
+                Whether to fall back to the default hostname generation
+                "{service_name}-{environment.name}" when no strategy resolves a
+                hostname.
+            hostname_coerce_into_valid_hostname:
+                Whether to coerce a non-compliant hostname into RFC1123 format
+                during hostname resolution. If `False`, a non-compliant hostname
+                will result in an error.
+        """
         self.checks: list[Check] = []
         for check_or_module in checks:
             if isinstance(check_or_module, ModuleType):
@@ -233,21 +374,48 @@ class Watchpost:
         self._check_hostname_generation_verified = False
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """
+        ASGI entrypoint that delegates to the internal Starlette app.
+
+        Parameters:
+            scope:
+                ASGI scope.
+            receive:
+                ASGI receive callable.
+            send:
+                ASGI send callable.
+        """
         with self.app_context():
             return await self._starlette(scope, receive, send)
 
     @asynccontextmanager
     async def _lifespan(self, _app: Starlette) -> AsyncGenerator[None]:
+        """
+        Starlette lifespan hook that verifies configuration on startup.
+
+        This ensures checks are schedulable and hostnames can be resolved before
+        serving requests.
+        """
         self.verify_check_scheduling()
         self.verify_hostname_generation()
         yield
 
     @contextmanager
     def app_context(self) -> Generator[Watchpost]:
+        """
+        Provide a context where the current Watchpost instance is active.
+
+        This sets the global context variable so helper utilities can access the
+        current application instance during check execution.
+
+        Returns:
+            The current `Watchpost` instance via a context manager.
+        """
         try:
             _cv.get()
             yield self
         except LookupError:
+            # We only set the global context variable if it is not already set.
             _token = _cv.set(self)
             try:
                 yield self
@@ -259,6 +427,15 @@ class Watchpost:
         datasource_type: type[_D],
         **kwargs: dict[str, Any],
     ) -> None:
+        """
+        Register a datasource type and its constructor arguments.
+
+        Parameters:
+            datasource_type:
+                The `Datasource` subclass to register.
+            kwargs:
+                Keyword arguments to use when instantiating the datasource.
+        """
         if datasource_type.scheduling_strategies is Ellipsis:
             logger.warning(
                 "The provided datasource '%s' has no scheduling strategies defined. Please make sure to either define them or explicitly set scheduling_strategies=().",
@@ -267,9 +444,23 @@ class Watchpost:
         self._datasource_definitions[datasource_type] = kwargs
 
     def register_datasource_factory(self, factory_type: type[_DF]) -> None:
+        """
+        Register a `DatasourceFactory` that can produce datasources.
+
+        Parameters:
+            factory_type:
+                The factory type to register.
+        """
         self._datasource_factories.add(factory_type)
 
     def _generate_checkmk_agent_output(self) -> Generator[bytes]:
+        """
+        Generate the Checkmk agent header for this Watchpost instance.
+
+        Returns:
+            A byte stream containing the Checkmk section header with version and
+            static agent information.
+        """
         yield b"<<<check_mk>>>\n"
         yield b"Version: watchpost-"
         yield self.version.encode("utf-8")
@@ -277,6 +468,14 @@ class Watchpost:
         yield b"AgentOS: watchpost\n"
 
     def _generate_synthetic_result_outputs(self) -> Generator[bytes]:
+        """
+        Generate synthetic results that complement real check outputs.
+
+        Returns:
+            A byte stream representing additional sections, such as a summary of
+            all discovered check functions.
+        """
+
         def run_checks() -> ExecutionResult:
             details = "Check functions:\n- "
             details += "\n- ".join(check.name for check in self.checks)
@@ -302,6 +501,23 @@ class Watchpost:
         self,
         datasource_type: type[_D] | type[_DF],
     ) -> _InstantiableDatasource:
+        """
+        Resolve a datasource or factory type into an `_InstantiableDatasource`.
+
+        The result is cached per type for reuse across checks.
+
+        Parameters:
+            datasource_type:
+                Either a concrete `Datasource` subclass or a `DatasourceFactory`
+                type.
+
+        Returns:
+            An `_InstantiableDatasource` that can create the instance on demand.
+
+        Raises:
+            ValueError:
+                If no matching datasource definition or factory is registered.
+        """
         if instantiable_datasource := self._instantiable_datasources.get(
             datasource_type
         ):
@@ -334,6 +550,25 @@ class Watchpost:
         type_key: type[_DF],
         from_factory: FromFactory,
     ) -> _InstantiableDatasource:
+        """
+        Resolve an instantiable datasource specified via
+        `Annotated[..., FromFactory]`.
+
+        Parameters:
+            type_key:
+                The annotated type to use as the cache key when a concrete
+                factory is not specified on `from_factory`.
+            from_factory:
+                The `FromFactory` descriptor carrying the concrete factory and its
+                arguments.
+
+        Returns:
+            An `_InstantiableDatasource` created from the given factory.
+
+        Raises:
+            ValueError:
+                If the referenced factory type has not been registered.
+        """
         factory_cache_key = from_factory.cache_key(type_key)
         if instantiable_datasource := self._instantiable_datasources.get(
             factory_cache_key
@@ -364,6 +599,27 @@ class Watchpost:
         )
 
     def _resolve_datasources(self, check: Check) -> dict[str, _InstantiableDatasource]:
+        """
+        Inspect a check's signature and map parameters to instantiable
+        datasources.
+
+        This supports two forms of annotations:
+
+        - A concrete `Datasource` subclass.
+        - `Annotated[DatasourceType, FromFactory(...)]` to specify a factory and
+          its arguments.
+
+        Parameters:
+            check:
+                The `Check` whose parameters should be resolved.
+
+        Returns:
+            A mapping of parameter names to `_InstantiableDatasource` wrappers.
+
+        Raises:
+            ValueError:
+                If an unsupported annotation is encountered.
+        """
         if (
             resolved_instantiable_datasources
             := self._resolved_instantiable_datasources.get(check)
@@ -411,6 +667,22 @@ class Watchpost:
         return instantiable_datasources
 
     def _resolve_scheduling_strategies(self, check: Check) -> list[SchedulingStrategy]:
+        """
+        Build the list of scheduling strategies that apply to a check.
+
+        The final list includes, in order:
+
+        - Strategies declared on the check.
+        - Strategies declared on each datasource used by the check.
+        - The application's default strategies.
+
+        Parameters:
+            check:
+                The `Check` for which to resolve strategies.
+
+        Returns:
+            An ordered list of `SchedulingStrategy` objects to evaluate.
+        """
         if resolved_strategies := self._resolved_strategies.get(check):
             return resolved_strategies
 
@@ -436,6 +708,18 @@ class Watchpost:
         check: Check,
         environment: Environment,
     ) -> SchedulingDecision:
+        """
+        Evaluate strategies to decide whether a check should run.
+
+        Parameters:
+            check:
+                The check under consideration.
+            environment:
+                The target environment of the check execution.
+
+        Returns:
+            The final `SchedulingDecision` after evaluating all strategies.
+        """
         strategies = self._resolve_scheduling_strategies(check)
 
         final_decision = SchedulingDecision.SCHEDULE
@@ -454,6 +738,20 @@ class Watchpost:
         self,
         force: bool = False,
     ) -> None:
+        """
+        Validate that checks can be scheduled and invoked correctly.
+
+        This verifies argument provisioning for each check and evaluates each
+        strategy's configuration checks. It aggregates errors across all checks.
+
+        Parameters:
+            force:
+                Run verification even if it has already completed successfully.
+
+        Raises:
+            ExceptionGroup:
+                If one or more checks are misconfigured.
+        """
         if self._check_scheduling_verified and not force:
             return
 
@@ -507,6 +805,17 @@ class Watchpost:
         self,
         force: bool = False,
     ) -> None:
+        """
+        Validate that hostnames can be resolved for all checks and environments.
+
+        Parameters:
+            force:
+                Run verification even if it has already completed successfully.
+
+        Raises:
+            ExceptionGroup:
+                If hostname resolution fails for any check/environment.
+        """
         if self._check_hostname_generation_verified and not force:
             return
 
@@ -545,6 +854,29 @@ class Watchpost:
         custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
         use_cache: bool = True,
     ) -> list[ExecutionResult] | None:
+        """
+        Execute a single check for one environment and return its results.
+
+        This method resolves the piggyback host, evaluates scheduling, manages
+        the cache, submits work to the executor, and normalizes error cases into
+        `ExecutionResult` objects.
+
+        Parameters:
+            check:
+                The `Check` to execute.
+            environment:
+                The environment the check targets.
+            instantiable_datasources:
+                Mapping of parameter names to datasource wrappers for this check.
+            custom_executor:
+                Optional executor to use instead of the application executor.
+            use_cache:
+                Whether to use and update the per-check cache.
+
+        Returns:
+            A list of `ExecutionResult` objects, or `None` if the check is not
+            scheduled (`DONT_SCHEDULE`).
+        """
         executor = custom_executor or self.executor
 
         piggyback_host = resolve_hostname(
@@ -699,6 +1031,20 @@ class Watchpost:
         custom_executor: CheckExecutor[list[ExecutionResult]] | None = None,
         use_cache: bool = True,
     ) -> Generator[ExecutionResult]:
+        """
+        Run a single check across all its target environments.
+
+        Parameters:
+            check:
+                The `Check` to run.
+            custom_executor:
+                Optional executor used only for this call.
+            use_cache:
+                Whether to use and update the per-check cache.
+
+        Yields:
+            `ExecutionResult` objects produced by the check for each environment.
+        """
         with self.app_context():
             instantiable_datasources = self._resolve_datasources(check)
             for environment in check.environments:
@@ -715,6 +1061,15 @@ class Watchpost:
                 yield from execution_results
 
     def run_checks(self) -> Generator[bytes]:
+        """
+        Run all checks and produce a Checkmk-compatible output stream.
+
+        This yields the agent header, the serialized results of all checks, and
+        synthetic sections.
+
+        Yields:
+            Bytes in Checkmk agent format.
+        """
         self.verify_check_scheduling()
         with self.app_context():
             yield from self._generate_checkmk_agent_output()
@@ -726,6 +1081,11 @@ class Watchpost:
             yield from self._generate_synthetic_result_outputs()
 
     def run_checks_once(self) -> None:
+        """
+        Run all the checks once and write the output stream to stdout.
+
+        This is a convenience method primarily intended for CLI usage.
+        """
         with self.app_context():
             for chunk in self.run_checks():
                 sys.stdout.buffer.write(chunk)
