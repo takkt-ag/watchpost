@@ -41,11 +41,19 @@ dev = [
     "testcontainers[redis]>=4.13.0,<5.0.0",
     "ty>=0.0.1a20",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-autorefs>=1.4.3",
+    "mkdocs-material>=9.6.19",
+    "mkdocs-section-index>=0.3.10",
+    "mkdocstrings[python]>=0.30.0",
+]
 
 [tool.licensecheck]
 only_licenses = [
     "Apache-2.0",
     "BSD-2-Clause",
+    "ISC",
     "MIT",
     "MPL-2.0",
     "PSF-2.0",
