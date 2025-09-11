@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from .cache import Cache, CacheEntry, Storage
 from .datasource import Datasource
 from .environment import Environment
-from .hostname import HostnameStrategy, resolve_hostname, to_strategy
+from .hostname import HostnameInput, HostnameStrategy, resolve_hostname, to_strategy
 from .result import (
     CheckResult,
     ExecutionResult,
@@ -276,7 +276,7 @@ def check(
     service_labels: dict[str, Any],
     environments: list[Environment],
     cache_for: timedelta | str | None,
-    hostname: str | Callable[[object], str | None] | HostnameStrategy | None = None,
+    hostname: HostnameInput | None = None,
 ) -> Callable[[CheckFunction], Check]:
     check_definition = get_invocation_information()
 

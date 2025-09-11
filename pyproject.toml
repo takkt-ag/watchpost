@@ -10,17 +10,17 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "starlette>=0.47.2",
-    "timelength>=3.0.2",
+    "starlette>=0.47.3,<0.48.0",
+    "timelength>=3.0.2,<3.1.0",
 ]
 
 [project.optional-dependencies]
 cli = [
-    "click>=8.2.1",
-    "rich>=14.1.0",
+    "click>=8.2.1,<9.0.0",
+    "rich>=14.1.0,<15.0.0",
 ]
 redis = [
-    "redis>=6.4.0",
+    "redis>=6.4.0,<7.0.0",
 ]
 
 [project.scripts]
@@ -32,14 +32,14 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
-    "lefthook>=1.12.2",
-    "licensecheck>=2025.1.0",
-    "mypy>=1.17.1",
-    "pytest>=8.4.1",
-    "ruff>=0.12.7",
-    "testcontainers[redis]>=4.12.0",
-    "ty>=0.0.1a17",
+    "httpx>=0.28.1,<0.29.0",
+    "lefthook>=1.12.4,<2.0.0",
+    "licensecheck>=2025.1.0,<2025.2.0",
+    "mypy>=1.17.1,<2.0.0",
+    "pytest>=8.4.2,<9.0.0",
+    "ruff>=0.13.0,<0.14.0",
+    "testcontainers[redis]>=4.13.0,<5.0.0",
+    "ty>=0.0.1a20",
 ]
 
 [tool.licensecheck]

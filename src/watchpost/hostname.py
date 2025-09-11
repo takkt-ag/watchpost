@@ -229,7 +229,8 @@ def resolve_hostname(
 
     # 1) Per-result override
     if result and result.hostname:
-        candidate = result.hostname
+        if strategy := to_strategy(result.hostname):
+            candidate = strategy.resolve(ctx)
     else:
         # 2) Check-level strategy
         if check.hostname_strategy:

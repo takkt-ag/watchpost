@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
 import pytest
@@ -96,7 +97,10 @@ def test_datasources_are_not_eagerly_instantiated():
 
     # Executing the checks should fail because the requested datasource cannot be
     # instantiated.
-    with pytest.raises(RuntimeError, match="Cannot instantiate this class."):
+    with pytest.raises(
+        RuntimeError,
+        match=re.escape("Cannot instantiate this class."),
+    ):
         _ = b"".join(app.run_checks())
 
 
@@ -170,5 +174,8 @@ def test_uninstantiable_datasource_does_not_affect_other_checks():
 
     # Executing the checks against env2 should fail, though:
     app.execution_environment = ENVIRONMENT2
-    with pytest.raises(RuntimeError, match="Cannot instantiate this class."):
+    with pytest.raises(
+        RuntimeError,
+        match=re.escape("Cannot instantiate this class."),
+    ):
         _ = b"".join(app.run_checks())

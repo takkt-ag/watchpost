@@ -30,6 +30,7 @@ from .utils import InvocationInformation
 
 if TYPE_CHECKING:
     from .check import CheckFunctionResult
+    from .hostname import HostnameInput
 
 Details = str | dict | Exception
 
@@ -120,7 +121,7 @@ class CheckResult:
     details: str | None = None
     name_suffix: str | None = None
     metrics: list[Metric] | None = None
-    hostname: str | None = None
+    hostname: HostnameInput | None = None
 
     def __init__(
         self,
@@ -129,7 +130,7 @@ class CheckResult:
         details: Details | None = None,
         name_suffix: str | None = None,
         metrics: list[Metric] | None = None,
-        hostname: str | None = None,
+        hostname: HostnameInput | None = None,
     ):
         self.check_state = check_state
         self.summary = summary
@@ -144,7 +145,7 @@ def ok(
     details: Details | None = None,
     name_suffix: str | None = None,
     metrics: list[Metric] | None = None,
-    alternative_hostname: str | None = None,
+    alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
     return CheckResult(
         check_state=CheckState.OK,
@@ -161,7 +162,7 @@ def warn(
     details: Details | None = None,
     name_suffix: str | None = None,
     metrics: list[Metric] | None = None,
-    alternative_hostname: str | None = None,
+    alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
     return CheckResult(
         check_state=CheckState.WARN,
@@ -178,7 +179,7 @@ def crit(
     details: Details | None = None,
     name_suffix: str | None = None,
     metrics: list[Metric] | None = None,
-    alternative_hostname: str | None = None,
+    alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
     return CheckResult(
         check_state=CheckState.CRIT,
@@ -195,7 +196,7 @@ def unknown(
     details: Details | None = None,
     name_suffix: str | None = None,
     metrics: list[Metric] | None = None,
-    alternative_hostname: str | None = None,
+    alternative_hostname: HostnameInput | None = None,
 ) -> CheckResult:
     return CheckResult(
         check_state=CheckState.UNKNOWN,
@@ -226,7 +227,7 @@ class OngoingCheckResult:
         base_details: Details | None = None,
         name_suffix: str | None = None,
         metrics: list[Metric] | None = None,
-        alternative_hostname: str | None = None,
+        alternative_hostname: HostnameInput | None = None,
     ):
         self.ok_summary = ok_summary
         self.fail_summary = fail_summary
@@ -304,7 +305,7 @@ def build_result(
     base_details: Details | None = None,
     name_suffix: str | None = None,
     metrics: list[Metric] | None = None,
-    alternative_hostname: str | None = None,
+    alternative_hostname: HostnameInput | None = None,
 ) -> OngoingCheckResult:
     return OngoingCheckResult(
         ok_summary=ok_summary,

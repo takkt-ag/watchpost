@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 from datetime import UTC, datetime, timedelta
 from tempfile import TemporaryDirectory
 from typing import cast
@@ -204,7 +205,8 @@ class TestDiskStorage:
             cache = Cache(disk_storage)
 
             with pytest.raises(
-                ValueError, match="Either key or key_generator must be provided."
+                ValueError,
+                match=re.escape("Either key or key_generator must be provided."),
             ):
 
                 @cache.memoize()
@@ -220,7 +222,8 @@ class TestDiskStorage:
                 return "something"
 
             with pytest.raises(
-                ValueError, match="Only one of key or key_generator can be provided."
+                ValueError,
+                match=re.escape("Only one of key or key_generator can be provided."),
             ):
 
                 @cache.memoize(key="something", key_generator=key_generator)
@@ -406,7 +409,8 @@ class TestInMemoryStorage:
         cache = Cache(in_memory_storage)
 
         with pytest.raises(
-            ValueError, match="Either key or key_generator must be provided."
+            ValueError,
+            match=re.escape("Either key or key_generator must be provided."),
         ):
 
             @cache.memoize()
@@ -422,7 +426,8 @@ class TestInMemoryStorage:
             return "something"
 
         with pytest.raises(
-            ValueError, match="Only one of key or key_generator can be provided."
+            ValueError,
+            match=re.escape("Only one of key or key_generator can be provided."),
         ):
 
             @cache.memoize(key="something", key_generator=key_generator)
@@ -459,7 +464,10 @@ class TestInMemoryStorage:
 class TestChainedStorage:
     def test_constructor_requires_at_least_one_storage(self):
         """Test that the constructor raises ValueError when no storages are provided."""
-        with pytest.raises(ValueError, match="At least one storage must be provided"):
+        with pytest.raises(
+            ValueError,
+            match=re.escape("At least one storage must be provided"),
+        ):
             ChainedStorage([])
 
     def test_get_tries_storages_in_order(self):
@@ -927,7 +935,8 @@ class TestRedisStorage:
         cache = Cache(redis_storage)
 
         with pytest.raises(
-            ValueError, match="Either key or key_generator must be provided."
+            ValueError,
+            match=re.escape("Either key or key_generator must be provided."),
         ):
 
             @cache.memoize()
@@ -943,7 +952,8 @@ class TestRedisStorage:
             return "something"
 
         with pytest.raises(
-            ValueError, match="Only one of key or key_generator can be provided."
+            ValueError,
+            match=re.escape("Only one of key or key_generator can be provided."),
         ):
 
             @cache.memoize(key="something", key_generator=key_generator)
