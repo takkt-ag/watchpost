@@ -14,6 +14,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Global state for Watchpost and a proxy to the active application instance.
+
+This module exposes `current_app`, a lightweight `LocalProxy` that resolves to
+the running `Watchpost` instance. It uses a `ContextVar`, so access is bound to
+the current async/task context rather than a process-wide global. This makes it
+safe to use from request handlers, check execution, and any code that runs under
+`Watchpost.app_context()`.
+
+Notes:
+
+- `Watchpost.app_context()` sets and resets the context variable around
+  operations that need access to the active application. The ASGI integration
+  also enters this context automatically for incoming requests.
+- Accessing `current_app` outside an active context raises a `RuntimeError` with
+  a helpful message. Ensure your code runs inside `Watchpost.app_context()` or
+  via the ASGI app when using `current_app`.
+"""
+
 from __future__ import annotations
 
 from contextvars import ContextVar
