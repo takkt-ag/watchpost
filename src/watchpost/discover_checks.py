@@ -14,6 +14,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Utilities for discovering checks defined in modules and packages.
+
+This module scans Python modules for global `Check` instances and, when
+requested, traverses packages to find checks across submodules. It offers
+predicates to include or exclude modules, an optional per-check filter, and
+configurable error handling for import failures.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -28,7 +37,14 @@ CheckPredicate = Callable[[Check, ModuleType, str], bool]
 
 
 class DiscoveryError(Exception):
-    pass
+    """
+    Raised when a submodule import fails during discovery and strict error
+    handling is enabled.
+
+    This exception is raised only when `raise_on_import_error=True` is passed to
+    `discover_checks()` and a submodule cannot be imported while traversing a
+    package.
+    """
 
 
 def discover_checks(
@@ -41,15 +57,46 @@ def discover_checks(
     raise_on_import_error: bool = False,
 ) -> list[Check]:
     """
-    Discover Check instances defined as global names in the given module or package.
+    Discover `Check` instances defined as global names in a module or package.
 
-    - If `module` is a string, it is imported via importlib.import_module.
-    - If `recursive` and the module is a package, discover submodules via pkgutil.walk_packages.
-    - `include_module` and `exclude_module` receive the imported module object and
-      can be used to constrain traversal (e.g., skip tests or heavy modules).
-    - `check_filter` receives (check, module, name) and can exclude specific checks.
-    - If `raise_on_import_error` is False (default), modules that cannot be imported
-      are skipped; otherwise, the import error is raised.
+    This function scans the given module for global `Check` objects and, when
+    `recursive` is enabled, traverses subpackages to discover checks across the
+    package tree. It supports module-level include/exclude predicates, a
+    per-check filter, and optional strict error handling for imports.
+
+    Parameters:
+        module:
+            The root module object or dotted module name to scan for checks.
+        recursive:
+            Indicates whether to traverse subpackages when the module is a
+            package.
+        include_module:
+            Predicate receiving the imported module. Return True to include the
+            module in scanning; return False to skip it. Use this to constrain
+            traversal (for example, skip test modules or expensive imports).
+        exclude_module:
+            Predicate receiving the imported module. If it returns True, the
+            module is skipped. This is applied after `include_module`.
+        check_filter:
+            Predicate receiving `(check, module, name)` that decides whether a
+            discovered `Check` should be included. Return True to keep it.
+        raise_on_import_error:
+            If True, raise a `DiscoveryError` when a submodule import fails
+            while traversing packages. If False (default), such modules are
+            skipped.
+
+    Returns:
+        A list of discovered `Check` instances. If the same `Check` object is
+        re-exported from multiple modules, it appears only once.
+
+    Raises:
+        DiscoveryError:
+            If a submodule import fails and `raise_on_import_error` is True.
+
+    Notes:
+        Checks are discovered by scanning module globals and selecting objects
+        that are instances of `Check`. Identity de-duplicates duplicate objects
+        to avoid listing the same `Check` multiple times when re-exported.
     """
     if isinstance(module, str):
         root_module = importlib.import_module(module)
