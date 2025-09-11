@@ -24,7 +24,7 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from enum import Enum
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, assert_never, cast
 
 from .utils import InvocationInformation
 
@@ -111,7 +111,8 @@ class CheckState(Enum):
                 return crit
             case CheckState.UNKNOWN:
                 return unknown
-        raise ValueError("Unknown check state")
+            case _:
+                assert_never(self)  # type: ignore[type-assertion-failure]
 
 
 @dataclass(init=False)
