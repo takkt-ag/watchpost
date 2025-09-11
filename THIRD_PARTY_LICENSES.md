@@ -168,7 +168,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### lefthook-1.12.2
+### lefthook-1.12.4
 
 - HomePage: https://github.com/evilmartians/lefthook
 - Author: Evil Martians
@@ -196,14 +196,14 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### markdown-3.8.2
+### markdown-3.9
 
 - HomePage: UNKNOWN
 - Author: Manfred Stienstra, Yuri Takhteyev
 - License: BSD-3-CLAUSE
 - Compatible: True
 
-### markdown-it-py-3.0.0
+### markdown-it-py-4.0.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -245,7 +245,7 @@ Find a list of packages below
 - License: MOZILLA PUBLIC LICENSE 2.0 _MPL 2.0_
 - Compatible: True
 
-### platformdirs-4.3.8
+### platformdirs-4.4.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -266,7 +266,7 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
-### pytest-8.4.1
+### pytest-8.4.2
 
 - HomePage: UNKNOWN
 - Author: Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)
@@ -287,7 +287,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### requests-2.32.4
+### requests-2.32.5
 
 - HomePage: https://requests.readthedocs.io
 - Author: Kenneth Reitz
@@ -315,7 +315,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ruff-0.12.8
+### ruff-0.13.0
 
 - HomePage: https://docs.astral.sh/ruff
 - Author: UNKNOWN
@@ -329,14 +329,14 @@ Find a list of packages below
 - License: APACHE SOFTWARE LICENSE;; MIT LICENSE
 - Compatible: True
 
-### starlette-0.47.2
+### starlette-0.47.3
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: BSD LICENSE
 - Compatible: True
 
-### testcontainers-4.12.0
+### testcontainers-4.13.0
 
 - HomePage: UNKNOWN
 - Author: Sergey Pirogov
@@ -357,14 +357,14 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ty-0.0.1a17
+### ty-0.0.1a20
 
 - HomePage: https://github.com/astral-sh/ty/
 - Author: UNKNOWN
 - License: MIT LICENSE
 - Compatible: True
 
-### typing-extensions-4.14.1
+### typing-extensions-4.15.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -385,7 +385,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### uv-0.8.8
+### uv-0.8.17
 
 - HomePage: https://pypi.org/project/uv/
 - Author: UNKNOWN
