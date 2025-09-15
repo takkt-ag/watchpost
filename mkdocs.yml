@@ -3,6 +3,7 @@ site_name: "Watchpost"
 nav:
 - Home:
   - Overview: index.md
+  - Quickstart: home/quickstart.md
 - API reference: reference/api.md
 
 theme:
@@ -44,6 +45,15 @@ theme:
       icon: material/weather-night
       name: Switch to system preference
 
+markdown_extensions:
+- pymdownx.highlight:
+    anchor_linenums: true
+    line_spans: __span
+    pygments_lang_class: true
+- pymdownx.inlinehilite
+- pymdownx.snippets
+- pymdownx.superfences
+
 plugins:
 - search
 - autorefs
@@ -71,3 +81,8 @@ plugins:
           show_symbol_type_toc: true
           signature_crossrefs: true
           summary: true
+- code-validator:
+    identifiers:
+      python:
+        validators:
+        - uv run python $<

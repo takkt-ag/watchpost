@@ -419,6 +419,20 @@ wheels = [
 ]
 
 [[package]]
+name = "mkdocs-code-validator"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markdown" },
+    { name = "mkdocs" },
+    { name = "pymdown-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/b5/dd7a910313fc66b6319f8647d930ff6d53612b87c112f9756e3ecaef556c/mkdocs_code_validator-0.2.0.tar.gz", hash = "sha256:486fee004da88659bafe0dc2c0439792e067c181f5168d4b4be990261db4a14e", size = 5391, upload-time = "2023-09-15T23:26:09.484Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/3f/ab35145de20859a0332b5c0db8ecbf0f20994d4ae382c1bc356deb635822/mkdocs_code_validator-0.2.0-py3-none-any.whl", hash = "sha256:0ef5053c2fa839b22f611b5130868d738804d1b25826d6c21e7f58c9aec18167", size = 5917, upload-time = "2023-09-15T23:26:07.809Z" },
+]
+
+[[package]]
 name = "mkdocs-get-deps"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -998,6 +1012,7 @@ dev = [
 docs = [
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },
+    { name = "mkdocs-code-validator" },
     { name = "mkdocs-material" },
     { name = "mkdocs-section-index" },
     { name = "mkdocstrings", extra = ["python"] },
@@ -1027,6 +1042,7 @@ dev = [
 docs = [
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "mkdocs-autorefs", specifier = ">=1.4.3" },
+    { name = "mkdocs-code-validator", specifier = ">=0.2.0" },
     { name = "mkdocs-material", specifier = ">=9.6.19" },
     { name = "mkdocs-section-index", specifier = ">=0.3.10" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.30.0" },

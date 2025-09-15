@@ -46,6 +46,7 @@ Find a list of packages below
 |✔|mergedeep|
 |✔|mkdocs|
 |✔|mkdocs-autorefs|
+|✔|mkdocs-code-validator|
 |✔|mkdocs-get-deps|
 |✔|mkdocs-material|
 |✔|mkdocs-material-extensions|
@@ -308,6 +309,13 @@ Find a list of packages below
 - HomePage: UNKNOWN
 - Author: UNKNOWN
 - License: ISC
+- Compatible: True
+
+### mkdocs-code-validator-0.2.0
+
+- HomePage: UNKNOWN
+- Author: UNKNOWN
+- License: MIT LICENSE
 - Compatible: True
 
 ### mkdocs-get-deps-0.2.0
