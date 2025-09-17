@@ -17,6 +17,8 @@ pre-commit:
     - python
     - lint
     glob: "*.py"
+    exclude:
+    - checkmk-integration/watchpost-plugin/**/*.py
     run: uv run ty check {staged_files}
   - name: mypy
     tags:

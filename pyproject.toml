@@ -96,3 +96,6 @@ extend-select = [
 "examples/**.py" = [
     "T20",  # flake8-print
 ]
+
+[tool.ty.src]
+exclude = ["checkmk-integration/watchpost-plugin/"]
