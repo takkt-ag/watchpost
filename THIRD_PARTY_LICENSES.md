@@ -87,7 +87,7 @@ Find a list of packages below
 |✔|watchdog|
 |✔|wrapt|
 
-### anyio-4.10.0
+### anyio-4.11.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -150,7 +150,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### click-8.2.1
+### click-8.3.0
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -234,7 +234,7 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
-### lefthook-1.12.4
+### lefthook-1.13.6
 
 - HomePage: https://github.com/evilmartians/lefthook
 - Author: Evil Martians
@@ -276,11 +276,11 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### markupsafe-3.0.2
+### markupsafe-3.0.3
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
-- License: BSD LICENSE
+- License: BSD-3-CLAUSE
 - Compatible: True
 
 ### mdurl-0.1.2
@@ -325,7 +325,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### mkdocs-material-9.6.19
+### mkdocs-material-9.6.21
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -346,7 +346,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### mkdocstrings-0.30.0
+### mkdocstrings-0.30.1
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -360,7 +360,7 @@ Find a list of packages below
 - License: ISC
 - Compatible: True
 
-### mypy-1.17.1
+### mypy-1.18.2
 
 - HomePage: UNKNOWN
 - Author: UNKNOWN
@@ -444,7 +444,7 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
-### pyyaml-6.0.2
+### pyyaml-6.0.3
 
 - HomePage: https://pyyaml.org/
 - Author: Kirill Simonov
@@ -493,7 +493,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ruff-0.13.0
+### ruff-0.13.2
 
 - HomePage: https://docs.astral.sh/ruff
 - Author: UNKNOWN
@@ -521,7 +521,7 @@ Find a list of packages below
 - License: BSD LICENSE
 - Compatible: True
 
-### testcontainers-4.13.0
+### testcontainers-4.13.1
 
 - HomePage: UNKNOWN
 - Author: Sergey Pirogov
@@ -542,7 +542,7 @@ Find a list of packages below
 - License: MIT LICENSE
 - Compatible: True
 
-### ty-0.0.1a20
+### ty-0.0.1a21
 
 - HomePage: https://github.com/astral-sh/ty/
 - Author: UNKNOWN
@@ -570,7 +570,7 @@ Find a list of packages below
 - License: MIT
 - Compatible: True
 
-### uv-0.8.17
+### uv-0.8.22
 
 - HomePage: https://pypi.org/project/uv/
 - Author: UNKNOWN
